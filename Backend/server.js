@@ -13,8 +13,7 @@ import profileRoutes from './routes/profileRoutes.js';
 import passportConfig from './config/passport.js';
 import path from 'path';
 
-// Start background workers
-import './workers/index.js';
+// Background workers are now started in a separate process
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,7 +34,24 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Serve static files from public directory
-app.use(express.static(path.join(process.cwd(), 'public')));
+app.use('/public', async (req, res, next) => {
+  if (process.env.USE_MINIO === 'true') {
+    try {
+      const bucket = process.env.MINIO_BUCKET_NAME || 'icuman';
+      // req.path will be like /users/fileName.webp if they fetch /public/users/fileName.webp
+      // Wait, the minio path stored is public/users/fileName.webp
+      // So we want to fetch `public${req.path}` from minio.
+      const objectName = `public${req.path}`;
+      const stream = await minioClient.getObject(bucket, objectName);
+      res.setHeader('Content-Type', 'image/webp');
+      stream.pipe(res);
+      return;
+    } catch (err) {
+      // If not found in MinIO, fallback to local static
+    }
+  }
+  next();
+}, express.static(path.join(process.cwd(), 'public')));
 
 // Initialize Passport
 app.use(passport.initialize());

@@ -1,208 +1,176 @@
 import { Worker } from "bullmq";
-import { connection } from "../services/queue.js";
+import prisma from "../config/prisma.js";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
-import prisma from "../config/prisma.js";
+import { connection } from "../services/queue.js";
+import minioClient from "../config/minio.js";
 
-// --- CONFIGURATION ---
-// Modular image profiles. Add new keys here to support other models in the future.
-const IMAGE_PROFILES = {
-  users: (pipeline) => pipeline.resize(500, 500, { fit: "cover" }),
-  // Default fallback if needed
-  default: (pipeline) => pipeline.resize(800, 800, { fit: "inside" }),
-};
+// 1. DISABLE SHARP CACHE
+sharp.cache(false);
 
-// --- HELPER FUNCTIONS ---
+const USE_MINIO = process.env.USE_MINIO === "true";
+const BUCKET_NAME = process.env.MINIO_BUCKET_NAME || 'icuman';
 
 /**
- * Robustly resolves a file path, checking both root and 'Backend' directories.
+ * Helper: Aggressively clean .fuse_hidden files
  */
-const resolveSafePath = (targetPath, checkBackend = true) => {
-  let absolutePath = path.resolve(targetPath);
-
-  // 1. Check direct path
-  if (fs.existsSync(absolutePath)) return absolutePath;
-
-  // 2. Check inside Backend/ if not found
-  if (checkBackend) {
-    const backendPath = path.join(process.cwd(), "Backend", targetPath);
-    if (fs.existsSync(backendPath)) return backendPath;
-  }
-
-  return null;
-};
-
-/**
- * Handles the Sharp image processing pipeline.
- */
-const processImage = async (inputPath, outputPath, modelName) => {
-  sharp.cache(false); // Ensure file handles are released
-  const pipeline = sharp(inputPath);
-
-  // Apply transformation based on config
-  const transformFn = IMAGE_PROFILES[modelName] || IMAGE_PROFILES.default;
-  transformFn(pipeline);
-
-  await pipeline.webp({ quality: 80 }).toFile(outputPath);
-
-  // Verification
-  if (!fs.existsSync(outputPath)) throw new Error("File not created");
-  const stats = fs.statSync(outputPath);
-  if (stats.size === 0) {
-    cleanupFile(outputPath); // Clean empty file
-    throw new Error("Generated file is empty (0 bytes)");
-  }
-
-  return stats;
-};
-
-/**
- * Safely deletes a file if it exists.
- */
-const cleanupFile = (filePath) => {
+const cleanStaleFuseFiles = (dirPath) => {
   try {
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      return true;
+    if (!fs.existsSync(dirPath)) return;
+    const files = fs.readdirSync(dirPath);
+    let deletedCount = 0;
+    files.forEach((file) => {
+      if (file.startsWith(".fuse_hidden") || file.startsWith("profile-") || file.startsWith("users-")) {
+        const fullPath = path.join(dirPath, file);
+        try {
+          fs.unlinkSync(fullPath);
+          deletedCount++;
+        } catch (err) {
+          /* Ignore locks */
+        }
+      }
+    });
+    if (deletedCount > 0) {
+      console.log(`[Worker] 🧹 Nuke: Removed ${deletedCount} stale files from ${dirPath}`);
     }
   } catch (err) {
-    console.warn(
-      `[Cleanup Warning] Failed to delete ${filePath}: ${err.message}`
-    );
+    console.warn(`[Worker] ⚠️ Cleanup scan failed: ${err.message}`);
   }
-  return false;
 };
-
-/**
- * Updates the Prisma document and handles old file cleanup.
- */
-const updateDatabase = async (
-  modelName,
-  fileId,
-  fieldName,
-  relativeUrl,
-  absoluteOutputDir
-) => {
-  if (modelName !== "users") {
-    throw new Error("Only users model is supported in this example");
-  }
-
-  // 1. Fetch doc to find old image for cleanup
-  const doc = await prisma.users.findUnique({ where: { id: fileId } });
-  if (!doc) throw new Error(`${modelName} not found: ${fileId}`);
-
-  // 2. Cleanup old image (if replacing)
-  if (doc[fieldName]) {
-    const oldFileName = path.basename(doc[fieldName]);
-    // Prevent deleting the file we just created if names collide
-    const newFileName = path.basename(relativeUrl);
-
-    if (oldFileName !== newFileName) {
-      const oldAbsolutePath = path.join(absoluteOutputDir, oldFileName);
-      if (cleanupFile(oldAbsolutePath)) {
-        console.log(`[Worker] 🗑️ Deleted old image: ${oldFileName}`);
-      }
-    }
-  }
-
-  // 3. Update DB
-  await prisma.users.update({
-    where: { id: fileId },
-    data: { [fieldName]: relativeUrl }
-  });
-};
-
-// --- MAIN WORKER ---
 
 export const worker = new Worker(
   "media-processing",
   async (job) => {
-    const { fileId, filePath, mimeType, outputDir, modelName, fieldName } =
-      job.data;
+    const { fileId, filePath, modelName, fieldName } = job.data;
+    
+    // Support dynamic models like the example
+    const prismaModel = prisma[modelName.toLowerCase()];
+    if (!prismaModel) throw new Error(`Prisma model '${modelName}' not found`);
 
-    console.log(`[Worker] 🟢 Job started: ${modelName} (${fileId})`);
+    // Ensure we have absolute path to local file (uploaded by Multer)
+    let inputPath = filePath;
+    if (!path.isAbsolute(inputPath)) {
+      inputPath = path.resolve(process.cwd(), inputPath);
+    }
 
-    let absoluteInputPath = null;
-    let absoluteFinalPath = null;
+    console.log(`[Worker] 🟢 Start Job: ${modelName} ID: ${fileId} | Storage: ${USE_MINIO ? "MinIO" : "Local"}`);
+
+    let newResultPath = null;
 
     try {
-      // 1. Validate Input
-      absoluteInputPath = resolveSafePath(filePath);
-      if (!absoluteInputPath) {
-        throw new Error(`Input file missing: ${filePath}`);
-      }
-
-      // 2. Prepare Output Directory
-      // We force the output into the Backend folder if it exists to keep structure consistent
-      let absoluteOutputDir = path.resolve(outputDir);
-      if (
-        !absoluteOutputDir.includes("Backend") &&
-        fs.existsSync(path.join(process.cwd(), "Backend"))
-      ) {
-        absoluteOutputDir = path.join(process.cwd(), "Backend", outputDir);
-      }
-
-      if (!fs.existsSync(absoluteOutputDir)) {
-        fs.mkdirSync(absoluteOutputDir, { recursive: true });
+      // 2. Validate Local File
+      if (!fs.existsSync(inputPath)) {
+        throw new Error(`Local file missing at ${inputPath}`);
       }
 
       // 3. Process Image
-      if (!mimeType.startsWith("image/")) {
-        throw new Error("Unsupported MIME type");
-      }
+      const processedBuffer = await sharp(inputPath)
+        .resize(500, 500, { fit: "cover" })
+        .webp({ quality: 80 })
+        .toBuffer();
 
       const timestamp = Date.now();
-      const finalFilename = `${modelName.toLowerCase()}-${fileId}-${timestamp}.webp`;
-      absoluteFinalPath = path.join(absoluteOutputDir, finalFilename);
+      const folderName = `public/${modelName.toLowerCase()}`;
+      const fileName = `${fileId}-${timestamp}`;
 
-      console.log(`[Worker] ⚙️ Processing...`);
-      const stats = await processImage(
-        absoluteInputPath,
-        absoluteFinalPath,
-        modelName
-      );
+      // 4. Upload Logic
+      if (USE_MINIO) {
+        newResultPath = `/${folderName}/${fileName}.webp`;
+        await minioClient.putObject(
+          BUCKET_NAME,
+          `${folderName}/${fileName}.webp`,
+          processedBuffer,
+          processedBuffer.length,
+          { "Content-Type": "image/webp" }
+        );
+        console.log(`[Worker] ☁️ Uploaded to MinIO: ${newResultPath}`);
+      } else {
+        // Fallback local saving if Minio is off
+        const absoluteOutputDir = path.resolve(process.cwd(), folderName);
+        if (!fs.existsSync(absoluteOutputDir)) {
+          fs.mkdirSync(absoluteOutputDir, { recursive: true });
+        }
+        const finalFilename = `${fileName}.webp`;
+        const absoluteFinalPath = path.join(absoluteOutputDir, finalFilename);
+        fs.writeFileSync(absoluteFinalPath, processedBuffer);
+        newResultPath = `/${folderName}/${finalFilename}`;
+        console.log(`[Worker] 📁 Saved Locally: ${newResultPath}`);
+      }
 
-      console.log(`[Worker] ✅ Created: ${(stats.size / 1024).toFixed(2)} KB`);
+      // 5. Fetch Old Record
+      const existingDoc = await prismaModel.findUnique({
+        where: { id: fileId },
+      });
+      const oldPath = existingDoc ? existingDoc[fieldName] : null;
 
-      // 4. Generate URL
-      // robust relative path calculation
-      let relativeUrl = `/${path
-        .relative(path.join(process.cwd(), "Backend/public"), absoluteFinalPath)
-        .replace(/\\/g, "/")}`;
+      // 6. Update DB
+      await prismaModel.update({
+        where: { id: fileId },
+        data: { [fieldName]: newResultPath },
+      });
+      console.log(`[Worker] 💾 Database updated for ${fileId}`);
 
-      // Fallback if path relative calculation fails
-      if (!relativeUrl.startsWith("/"))
-        relativeUrl = `/uploads/${finalFilename}`;
+      // 7. Cleanup Old Image
+      if (oldPath && oldPath !== newResultPath) {
+        const isUrl = oldPath.startsWith("http");
+        // Convert old path like /public/users/x.webp to minio object public/users/x.webp
+        let minioObjectPath = oldPath.startsWith('/') ? oldPath.slice(1) : oldPath;
+        if (USE_MINIO && !isUrl) {
+          try {
+            await minioClient.removeObject(BUCKET_NAME, minioObjectPath);
+            console.log(`[Worker] 🗑️ Deleted old MinIO image: ${oldPath}`);
+          } catch (e) {
+            console.warn(`[Worker] MinIO delete failed: ${e.message}`);
+          }
+        } else if (!USE_MINIO && !isUrl) {
+           const oldLocalPath = path.join(process.cwd(), minioObjectPath);
+           if (fs.existsSync(oldLocalPath)) {
+              fs.unlinkSync(oldLocalPath);
+              console.log(`[Worker] 🗑️ Deleted old local image: ${oldPath}`);
+           }
+        }
+      }
 
-      // 5. Update Database & Cleanup Old Avatar
-      await updateDatabase(
-        modelName,
-        fileId,
-        fieldName,
-        relativeUrl,
-        absoluteOutputDir
-      );
-
-      // 6. Cleanup Input Temp File
-      cleanupFile(absoluteInputPath);
-
-      console.log(`[Worker] 🎉 Success: ${relativeUrl}`);
-      return relativeUrl;
+      return newResultPath;
     } catch (error) {
-      console.error(`❌ [Worker Failed] ${error.message}`);
-
-      // Emergency cleanup of partial file
-      cleanupFile(absoluteFinalPath);
-
+      console.error(`[Worker] ❌ Job Failed: ${error.message}`);
+      
+      // Rollback logic
+      if (USE_MINIO && newResultPath) {
+        try {
+          const rollbackPath = newResultPath.startsWith('/') ? newResultPath.slice(1) : newResultPath;
+          await minioClient.removeObject(BUCKET_NAME, rollbackPath);
+        } catch (e) {}
+      }
       throw error;
+    } finally {
+      // 8. Local Cleanup (Input file from multer)
+      try {
+        if (fs.existsSync(inputPath)) {
+          fs.unlinkSync(inputPath);
+          console.log(`[Worker] 🧹 Local temp file cleaned.`);
+        }
+      } catch (err) {
+        console.warn(`[Worker] Failed to delete temp file: ${err.message}`);
+      }
+      
+      // 9. Fuse Cleanup
+      cleanStaleFuseFiles(path.dirname(inputPath));
     }
   },
   {
     connection,
-    attempts: 3,
-    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: { count: 0 },
+    removeOnFail: { count: 20 },
   }
 );
 
-console.log("Media Worker started (Prisma Mode)...");
+// --- 10. Startup Cleanup ---
+const startUpCleanupPath = path.resolve(process.cwd(), "public/uploads");
+if (fs.existsSync(startUpCleanupPath)) {
+  console.log("[Worker] 🚀 Startup: Scanning for stale files...");
+  cleanStaleFuseFiles(startUpCleanupPath);
+}
+
+console.log("🚀 Media Worker is running...");

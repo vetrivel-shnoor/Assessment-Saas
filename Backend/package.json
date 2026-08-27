@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev:server": "nodemon server.js",
+    "dev:worker": "nodemon workers/index.js",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:worker\"",
     "db:reset": "prisma migrate reset --force --skip-seed"
   },
   "dependencies": {
@@ -29,6 +31,7 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.4",
     "nodemon": "^3.1.9",
     "prisma": "^5.22.0"
   }
