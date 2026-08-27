@@ -1,15 +1,51 @@
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { StatCard } from '../components/StatCard';
 import { Card, CardHeader, CardTitle } from '../components/Card';
 import { Button } from '../components/Button';
-import { Users, FileText, CheckCircle, Clock } from 'lucide-react';
+import { Users, FileText, CheckCircle, Clock, Building, Briefcase } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 const Dashboard = () => {
+  const { user, isValidating } = useApp();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isValidating) {
+      if (!user) {
+        navigate('/login');
+      } else if (!user.onboardingCompleted) {
+        navigate('/onboarding');
+      }
+    }
+  }, [user, isValidating, navigate]);
+
+  if (isValidating || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
   return (
     <DashboardLayout>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard Overview</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Welcome back! Here's what's happening with your assessments today.</p>
+      <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Welcome back, {user?.firstName} {user?.lastName}!
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-4">
+          <span className="capitalize font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-md">
+            {user?.role}
+          </span>
+          {user?.companyName && (
+            <span className="flex items-center gap-1"><Building className="w-4 h-4" /> {user.companyName}</span>
+          )}
+          {user?.skills && (
+            <span className="flex items-center gap-1"><Briefcase className="w-4 h-4" /> Skills: {user.skills}</span>
+          )}
+        </p>
       </div>
 
       {/* Stats Grid */}

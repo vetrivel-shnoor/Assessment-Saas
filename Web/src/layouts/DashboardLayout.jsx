@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -11,18 +11,35 @@ import {
   Bell,
   Search,
   Sun,
-  Moon
+  Moon,
+  UserCircle
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import Logo from '../components/Logo';
+import { useApp } from '../context/AppContext';
+import api from '../services/api';
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { user, setUser } = useApp();
+
+  const handleLogout = async () => {
+    try {
+      await api.get('/api/auth/logout');
+    } catch (err) {
+      console.error("Logout failed:", err);
+    } finally {
+      setUser(null);
+      navigate('/login');
+    }
+  };
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Profile', href: '/dashboard/profile', icon: UserCircle },
     { name: 'Assessments', href: '/dashboard/assessments', icon: FileSignature },
     { name: 'Candidates', href: '/dashboard/candidates', icon: Users },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -80,13 +97,13 @@ const DashboardLayout = ({ children }) => {
 
           {/* Sidebar Footer */}
           <div className="p-4 mb-4 mx-4 border-t border-gray-100 dark:border-gray-800">
-            <Link
-              to="/login"
-              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-red-500 transition-colors w-full text-gray-500 dark:text-gray-400"
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-red-500 transition-colors w-full text-gray-500 dark:text-gray-400 text-left"
             >
               <LogOut className="w-5 h-5" />
               Sign Out
-            </Link>
+            </button>
           </div>
         </div>
       </aside>
@@ -128,9 +145,13 @@ const DashboardLayout = ({ children }) => {
               <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 border-2 border-white dark:border-gray-900"></span>
             </button>
 
-            <div className="h-10 w-10 ml-2 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-400 flex items-center justify-center text-sm font-bold text-white shadow-sm cursor-pointer">
-              JD
-            </div>
+            <Link to="/dashboard/profile" className="h-10 w-10 ml-2 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-400 to-teal-400 flex items-center justify-center text-sm font-bold text-white shadow-sm cursor-pointer border border-emerald-100 dark:border-gray-800">
+              {user?.profilePicture ? (
+                <img src={user.profilePicture.startsWith('http') ? user.profilePicture : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${user.profilePicture}`} alt="Profile" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+              ) : (
+                <UserCircle className="w-6 h-6 text-white" />
+              )}
+            </Link>
           </div>
         </header>
 
