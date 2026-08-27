@@ -32,10 +32,10 @@ const cleanStaleFuseFiles = (dirPath) => {
       }
     });
     if (deletedCount > 0) {
-      console.log(`[Worker] 🧹 Nuke: Removed ${deletedCount} stale files from ${dirPath}`);
+      console.log(`[Worker] [Nuke] Removed ${deletedCount} stale files from ${dirPath}`);
     }
   } catch (err) {
-    console.warn(`[Worker] ⚠️ Cleanup scan failed: ${err.message}`);
+    console.warn(`[Worker] [Warning] Cleanup scan failed: ${err.message}`);
   }
 };
 
@@ -54,7 +54,7 @@ export const worker = new Worker(
       inputPath = path.resolve(process.cwd(), inputPath);
     }
 
-    console.log(`[Worker] 🟢 Start Job: ${modelName} ID: ${fileId} | Storage: ${USE_MINIO ? "MinIO" : "Local"}`);
+    console.log(`[Worker] [Start Job] ${modelName} ID: ${fileId} | Storage: ${USE_MINIO ? "MinIO" : "Local"}`);
 
     let newResultPath = null;
 
@@ -84,7 +84,7 @@ export const worker = new Worker(
           processedBuffer.length,
           { "Content-Type": "image/webp" }
         );
-        console.log(`[Worker] ☁️ Uploaded to MinIO: ${newResultPath}`);
+        console.log(`[Worker] [MinIO] Uploaded: ${newResultPath}`);
       } else {
         // Fallback local saving if Minio is off
         const absoluteOutputDir = path.resolve(process.cwd(), folderName);
@@ -95,7 +95,7 @@ export const worker = new Worker(
         const absoluteFinalPath = path.join(absoluteOutputDir, finalFilename);
         fs.writeFileSync(absoluteFinalPath, processedBuffer);
         newResultPath = `/${folderName}/${finalFilename}`;
-        console.log(`[Worker] 📁 Saved Locally: ${newResultPath}`);
+        console.log(`[Worker] [Local] Saved: ${newResultPath}`);
       }
 
       // 5. Fetch Old Record
@@ -109,7 +109,7 @@ export const worker = new Worker(
         where: { id: fileId },
         data: { [fieldName]: newResultPath },
       });
-      console.log(`[Worker] 💾 Database updated for ${fileId}`);
+      console.log(`[Worker] [DB] Database updated for ${fileId}`);
 
       // 7. Cleanup Old Image
       if (oldPath && oldPath !== newResultPath) {
@@ -119,7 +119,7 @@ export const worker = new Worker(
         if (USE_MINIO && !isUrl) {
           try {
             await minioClient.removeObject(BUCKET_NAME, minioObjectPath);
-            console.log(`[Worker] 🗑️ Deleted old MinIO image: ${oldPath}`);
+            console.log(`[Worker] [MinIO] Deleted old image: ${oldPath}`);
           } catch (e) {
             console.warn(`[Worker] MinIO delete failed: ${e.message}`);
           }
@@ -127,14 +127,14 @@ export const worker = new Worker(
            const oldLocalPath = path.join(process.cwd(), minioObjectPath);
            if (fs.existsSync(oldLocalPath)) {
               fs.unlinkSync(oldLocalPath);
-              console.log(`[Worker] 🗑️ Deleted old local image: ${oldPath}`);
+              console.log(`[Worker] [Local] Deleted old image: ${oldPath}`);
            }
         }
       }
 
       return newResultPath;
     } catch (error) {
-      console.error(`[Worker] ❌ Job Failed: ${error.message}`);
+      console.error(`[Worker] [Error] Job Failed: ${error.message}`);
       
       // Rollback logic
       if (USE_MINIO && newResultPath) {
@@ -149,7 +149,7 @@ export const worker = new Worker(
       try {
         if (fs.existsSync(inputPath)) {
           fs.unlinkSync(inputPath);
-          console.log(`[Worker] 🧹 Local temp file cleaned.`);
+          console.log(`[Worker] [Cleanup] Local temp file cleaned.`);
         }
       } catch (err) {
         console.warn(`[Worker] Failed to delete temp file: ${err.message}`);
@@ -169,8 +169,8 @@ export const worker = new Worker(
 // --- 10. Startup Cleanup ---
 const startUpCleanupPath = path.resolve(process.cwd(), "public/uploads");
 if (fs.existsSync(startUpCleanupPath)) {
-  console.log("[Worker] 🚀 Startup: Scanning for stale files...");
+  console.log("[Worker] [Startup] Scanning for stale files...");
   cleanStaleFuseFiles(startUpCleanupPath);
 }
 
-console.log("🚀 Media Worker is running...");
+console.log("Media Worker is running...");
