@@ -50,8 +50,7 @@ const Modal = ({ isOpen, onClose, title, description, children, theme }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          style={{ backgroundColor: theme.navbar.modalOverlay }}
-          className="fixed inset-0 z-[60] backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] backdrop-blur-sm bg-black/50 flex items-center justify-center p-4"
           onClick={onClose} // Close when clicking overlay
         >
           <motion.div
@@ -60,29 +59,19 @@ const Modal = ({ isOpen, onClose, title, description, children, theme }) => {
             exit={{ scale: 0.9, y: 20, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()} // Prevent close when clicking content
-            style={{
-              backgroundColor: theme.navbar.modalBg,
-              borderColor: theme.navbar.border,
-              boxShadow: theme.navbar.shadow,
-            }}
-            className="w-full max-w-lg border rounded-3xl overflow-hidden relative flex flex-col max-h-[90vh]"
+            className="w-full max-w-lg border rounded-3xl overflow-hidden relative flex flex-col max-h-[90vh] bg-white dark:bg-[#18181b] border-gray-200 dark:border-gray-800 shadow-xl text-gray-900 dark:text-gray-100"
           >
             {/* Header Section */}
             <div className="p-6 pb-2">
               <div className="flex justify-between items-start mb-2">
                 <h2
-                  className="text-2xl font-bold leading-tight pr-8"
-                  style={{ color: theme.navbar.textHover }}
+                  className="text-2xl font-bold leading-tight pr-8 text-gray-900 dark:text-white"
                 >
                   {title}
                 </h2>
                 <button
                   onClick={onClose}
-                  style={{
-                    backgroundColor: theme.navbar.searchBg,
-                    color: theme.navbar.textIdle,
-                  }}
-                  className="p-2 rounded-full transition-opacity hover:opacity-70 absolute top-5 right-5"
+                  className="p-2 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 absolute top-5 right-5"
                 >
                   <CloseIcon />
                 </button>
@@ -90,8 +79,7 @@ const Modal = ({ isOpen, onClose, title, description, children, theme }) => {
 
               {description && (
                 <p
-                  className="text-sm leading-relaxed"
-                  style={{ color: theme.navbar.textIdle }}
+                  className="text-sm leading-relaxed text-gray-500 dark:text-gray-400"
                 >
                   {description}
                 </p>

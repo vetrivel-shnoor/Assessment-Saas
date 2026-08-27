@@ -3,10 +3,37 @@ import { Sun, Moon, Menu, UserCircle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import Logo from './Logo';
+import { useState, useEffect } from 'react';
 
 const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const { user } = useApp();
+  
+  const [blobLoaded, setBlobLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const profileSrc = (user?.profilePicture?.startsWith('http') || user?.profilePicture?.startsWith('blob:'))
+    ? user.profilePicture 
+    : user?.profilePicture ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${user.profilePicture}` : null;
+  const isDirectUrl = profileSrc?.startsWith('http') || profileSrc?.startsWith('blob:');
+
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+    if (!isDirectUrl) setBlobLoaded(false);
+  }, [profileSrc, isDirectUrl]);
+
+  useEffect(() => {
+    const handleStart = () => setIsUploading(true);
+    const handleEnd = () => setIsUploading(false);
+    window.addEventListener("profile-upload-start", handleStart);
+    window.addEventListener("profile-upload-end", handleEnd);
+    return () => {
+      window.removeEventListener("profile-upload-start", handleStart);
+      window.removeEventListener("profile-upload-end", handleEnd);
+    };
+  }, []);
 
   return (
     <nav className="w-full flex items-center justify-between px-4 md:px-8 py-5 bg-[#F4F7F6]/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-50">
@@ -33,16 +60,22 @@ const Navbar = () => {
 
         {user ? (
           <Link to="/dashboard/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="h-10 w-10 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-400 to-teal-400 flex items-center justify-center shadow-sm border border-emerald-100 dark:border-gray-800">
-              {user.profilePicture ? (
+            <div className="relative h-10 w-10 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-400 to-teal-400 flex items-center justify-center shadow-sm border border-emerald-100 dark:border-gray-800">
+              {(isUploading || (!isDirectUrl && !blobLoaded && !imgError && profileSrc)) && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-200/20 dark:bg-white/10 backdrop-blur-md animate-pulse" />
+              )}
+              {profileSrc && !imgError ? (
                 <img 
-                  src={user.profilePicture.startsWith('http') ? user.profilePicture : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${user.profilePicture}`} 
+                  key={profileSrc}
+                  src={profileSrc} 
                   alt="Profile" 
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover" 
+                  className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-300 ${!isUploading && (isDirectUrl || blobLoaded) ? "opacity-100" : "opacity-0"}`} 
+                  onLoad={() => setBlobLoaded(true)}
+                  onError={() => { setImgError(true); setBlobLoaded(true); }}
                 />
               ) : (
-                <UserCircle className="w-6 h-6 text-white" />
+                <UserCircle className="w-6 h-6 text-white relative z-0" />
               )}
             </div>
             <div className="hidden sm:flex flex-col text-left">

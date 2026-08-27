@@ -60,13 +60,7 @@ const CropModal = ({ imageSrc, onCancel, onSave, theme }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div
-        className="relative w-full max-w-md rounded-3xl overflow-hidden flex flex-col max-h-[90vh]"
-        style={{
-          backgroundColor: theme.navbar?.modalBg || "#111",
-          border: `1px solid ${theme.navbar?.border || "#333"}`,
-        }}
-      >
+      <div className="relative w-full max-w-md rounded-3xl overflow-hidden flex flex-col max-h-[90vh] bg-white dark:bg-[#111] border border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
         <div className="p-4 flex justify-between items-center border-b border-white/10 z-10 bg-inherit">
           <h3 className="font-bold text-lg">Edit Photo</h3>
           <button
@@ -205,8 +199,8 @@ export default function ProfileHeader({
             {/* 1. SKELETON: Show only if local blob loading OR global loading */}
             {(isLoading ||
               (!isDirectUrl && !blobLoaded && !imgError && profileSrc)) && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-200/20 dark:bg-white/10 backdrop-blur-md animate-pulse" />
-            )}
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-200/20 dark:bg-white/10 backdrop-blur-md animate-pulse" />
+              )}
 
             {/* 2. IMAGE or FALLBACK */}
             {profileSrc && !imgError ? (
@@ -219,7 +213,7 @@ export default function ProfileHeader({
                 className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-300 ${
                   // If direct URL: show immediately. If blob: wait for load.
                   isDirectUrl || blobLoaded ? "opacity-100" : "opacity-0"
-                }`}
+                  }`}
                 onLoad={() => setBlobLoaded(true)}
                 onError={() => {
                   // If error (like 429), set error state to trigger fallback
@@ -249,7 +243,7 @@ export default function ProfileHeader({
         <div className="text-center md:text-left flex-1 min-w-0">
           <div className="flex items-center justify-center md:justify-start gap-3 flex-wrap">
             <span className="text-3xl sm:text-4xl font-black uppercase tracking-tight truncate max-w-full">
-              {user?.fullname || "Welcome"}
+              {(user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.fullname) || "Welcome"}
             </span>
             {user?.role === "admin" && (
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-red-500 text-white tracking-widest shadow-sm">
@@ -292,7 +286,7 @@ export default function ProfileHeader({
         </div>
 
         {/* Logout */}
-        <button
+        {/* <button
           onClick={onLogoutClick}
           className="flex items-center gap-2 px-6 py-3 rounded-full border hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50 transition-all text-sm font-bold uppercase tracking-wider group shrink-0"
           style={{
@@ -305,7 +299,7 @@ export default function ProfileHeader({
             className="group-hover:-translate-x-1 transition-transform"
           />{" "}
           Sign Out
-        </button>
+        </button> */}
       </motion.div>
 
       <AnimatePresence>

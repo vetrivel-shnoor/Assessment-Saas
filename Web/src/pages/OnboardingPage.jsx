@@ -4,14 +4,57 @@ import { User, Building2, Shield, Camera, Timer, FileText, Sun, Moon } from 'luc
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import Logo from '../components/Logo';
-import api from '../services/api';
+import api, { uploadProfileImage, checkAuth } from '../services/api';
+import toast from "react-hot-toast";
+import ProfileHeader from '../components/profile/ProfileHeader';
 
 const OnboardingPage = () => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme: themeString, toggleTheme } = useTheme();
+  const themeObj = themeString === 'dark' ? {
+    bg: '#030712', // matches gray-950
+    text: '#ffffff',
+    navbar: { border: '#1e293b', textIdle: '#9ca3af' },
+    scrollbar: { teeth: 'rgba(255,255,255,0.1)', handleGradientStart: '#1e293b' }
+  } : {
+    bg: '#ffffff',
+    text: '#111827',
+    navbar: { border: '#e5e7eb', textIdle: '#6b7280' },
+    scrollbar: { teeth: 'rgba(0,0,0,0.1)', handleGradientStart: '#e5e7eb' }
+  };
+
   const { user, setUser, isValidating } = useApp();
   const navigate = useNavigate();
 
   const [userType, setUserType] = useState('candidate');
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleProfileImageUpdate = async (file) => {
+    if (!file) return;
+    const localImageUrl = URL.createObjectURL(file);
+    setUser((prev) => ({ ...prev, profilePicture: localImageUrl }));
+    try {
+      setIsUploading(true);
+      const res = await uploadProfileImage(file);
+      if (res.success) {
+        setTimeout(async () => {
+          try {
+            const authRes = await checkAuth();
+            if (authRes.isAuthenticated) setUser(authRes.user);
+          } catch (err) {
+            console.error("Failed to sync profile", err);
+          } finally {
+            setIsUploading(false);
+          }
+        }, 3000);
+      } else {
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error("Upload failed", error);
+      toast.error("Failed to upload image");
+      setIsUploading(false);
+    }
+  };
   
   // Basic Info
   const [firstName, setFirstName] = useState('');
@@ -90,7 +133,7 @@ const OnboardingPage = () => {
           onClick={toggleTheme}
           className="p-2.5 text-gray-500 hover:text-emerald-500 transition-colors rounded-full bg-white dark:bg-gray-800 shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100 dark:border-gray-700"
         >
-          {theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          {themeString === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
         </button>
       </div>
 
@@ -138,6 +181,16 @@ const OnboardingPage = () => {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Please tell us a bit more about yourself.
             </p>
+          </div>
+
+          {/* Profile Upload Section */}
+          <div className="mb-10">
+            <ProfileHeader
+              user={user}
+              theme={themeObj}
+              onUpdateProfileImage={handleProfileImageUpdate}
+              isLoading={isUploading}
+            />
           </div>
 
           {/* User Type Toggle */}

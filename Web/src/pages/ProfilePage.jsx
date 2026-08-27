@@ -25,7 +25,18 @@ const TAB_COMPONENTS = {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { theme } = useTheme();
+  const { theme: themeString } = useTheme();
+  const theme = themeString === 'dark' ? {
+    bg: '#0F172A',
+    text: '#ffffff',
+    navbar: { border: '#1e293b', textIdle: '#9ca3af' },
+    scrollbar: { teeth: 'rgba(255,255,255,0.1)', handleGradientStart: '#1e293b' }
+  } : {
+    bg: '#F4F7F6',
+    text: '#111827',
+    navbar: { border: '#e5e7eb', textIdle: '#6b7280' },
+    scrollbar: { teeth: 'rgba(0,0,0,0.1)', handleGradientStart: '#e5e7eb' }
+  };
   const { setUser, user } = useApp();
 
   const [activeTabId, setActiveTabId] = useState("personal");
@@ -39,6 +50,9 @@ export default function ProfilePage() {
     // A. Optimistic Update (Immediate Feedback)
     const localImageUrl = URL.createObjectURL(file);
     setUser((prev) => ({ ...prev, profilePicture: localImageUrl }));
+    
+    // Broadcast upload start to other layout components
+    window.dispatchEvent(new Event('profile-upload-start'));
 
     try {
       setIsUploading(true);
@@ -58,15 +72,18 @@ export default function ProfilePage() {
             console.error("Failed to sync profile", err);
           } finally {
             setIsUploading(false);
+            window.dispatchEvent(new Event('profile-upload-end'));
           }
         }, 3000);
       } else {
         setIsUploading(false);
+        window.dispatchEvent(new Event('profile-upload-end'));
       }
     } catch (error) {
       console.error("Upload failed", error);
       toast.error("Failed to upload image");
       setIsUploading(false);
+      window.dispatchEvent(new Event('profile-upload-end'));
     }
   };
 
