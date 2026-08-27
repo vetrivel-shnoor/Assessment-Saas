@@ -1,0 +1,18 @@
+model users {
+  id                String            @id @default(uuid())
+  firstName         String
+  lastName          String
+  email             String            @unique
+  password          String?
+  googleId          String?           @unique
+  phone             String?
+  profilePicture    String?
+  role              String            @default("user")
+  onboardingCompleted Boolean         @default(false)
+  companyName       String?
+  jobTitle          String?
+  skills            String?
+  experienceLevel   String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}

@@ -1,14 +1,20 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import logger from './config/logger.js';
 import prisma from './config/prisma.js';
 import redis from './config/redis.js';
 import minioClient from './config/minio.js';
-import connectMongo from './config/mongoose.js';
+import authRoutes from './routes/authRoutes.js';
+import profileRoutes from './routes/profileRoutes.js';
+import passportConfig from './config/passport.js';
+import path from 'path';
 
-dotenv.config();
+// Start background workers
+import './workers/index.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,10 +27,24 @@ app.use(morgan(morganFormat, {
   },
 }));
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true,
+}));
 app.use(express.json());
+app.use(cookieParser());
+
+// Serve static files from public directory
+app.use(express.static(path.join(process.cwd(), 'public')));
+
+// Initialize Passport
+app.use(passport.initialize());
+passportConfig(passport);
 
 // Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/profile', profileRoutes);
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'success',
@@ -47,8 +67,6 @@ const startServer = async () => {
     process.exit(1);
   }
 
-  // 1b. Test Mongoose (MongoDB) Connection
-  await connectMongo();
 
   try {
     // 2. Test Redis Connection
