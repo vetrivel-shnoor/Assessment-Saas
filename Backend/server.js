@@ -10,8 +10,10 @@ import redis from './config/redis.js';
 import minioClient from './config/minio.js';
 import authRoutes from './routes/authRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import pbacRoutes from './routes/pbacRoutes.js';
 import passportConfig from './config/passport.js';
 import path from 'path';
+import { bootstrapPermissions } from './utils/bootstrapPermissions.js';
 
 // Background workers are now started in a separate process
 
@@ -60,6 +62,7 @@ passportConfig(passport);
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/pbac', pbacRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -78,6 +81,9 @@ const startServer = async () => {
     // 1a. Test Prisma (SQL) Connection
     await prisma.$connect();
     logger.info('[Prisma] Successfully connected to PostgreSQL');
+    
+    // 1b. Bootstrap permissions and roles
+    await bootstrapPermissions();
   } catch (error) {
     logger.error(`[Prisma] Failed to connect to PostgreSQL: ${error.message}`);
     process.exit(1);

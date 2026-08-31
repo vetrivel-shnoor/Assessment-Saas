@@ -1,6 +1,7 @@
 import argon2 from "argon2";
 import prisma from "../config/prisma.js";
 import generateTokenAndSetCookie from "../utils/generateToken.js";
+import hotcache from "../utils/hotcache.js";
 
 // ==============================================
 // 1. SIGNUP
@@ -38,9 +39,12 @@ export const Signup = async (req, res) => {
     }
 
     const hashedPassword = await argon2.hash(password);
+    const envSuperadmins = process.env.SUPERADMIN_EMAILS ? process.env.SUPERADMIN_EMAILS.split(',').map(e => e.trim()) : [];
+    const isSuperadmin = envSuperadmins.includes(email);
     
     // Assign role based on frontend userType toggle ('candidate' vs 'organisation')
-    const role = userType === 'organisation' ? 'organisation' : 'candidate';
+    let role = userType === 'organisation' ? 'organisation' : 'candidate';
+    if (isSuperadmin) role = 'superadmin';
 
     const newUser = await prisma.users.create({
       data: {
@@ -57,6 +61,15 @@ export const Signup = async (req, res) => {
         experienceLevel: role === 'candidate' ? experienceLevel : null
       }
     });
+
+    // Assign default PBAC user role or superadmin
+    const roleToAssign = isSuperadmin ? 'superadmin' : 'user';
+    const pbacRole = await prisma.role.findUnique({ where: { name: roleToAssign } });
+    if (pbacRole) {
+      await prisma.userRole.create({
+        data: { userId: newUser.id, roleId: pbacRole.id }
+      });
+    }
 
     generateTokenAndSetCookie(res, newUser.id);
 
@@ -132,7 +145,7 @@ export const Logout = (req, res) => {
 // 4. ME (Check Auth Status)
 // ==============================================
 export const Me = async (req, res) => {
-  const user = await prisma.users.findUnique({
+  let user = await prisma.users.findUnique({
       where: { id: req.user.id },
       select: {
           id: true,
@@ -150,9 +163,29 @@ export const Me = async (req, res) => {
       }
   });
 
+  const envSuperadmins = process.env.SUPERADMIN_EMAILS ? process.env.SUPERADMIN_EMAILS.split(',').map(e => e.trim()) : [];
+  if (user && envSuperadmins.includes(user.email) && user.role !== 'superadmin') {
+     await prisma.users.update({ where: { id: user.id }, data: { role: 'superadmin' } });
+     const superAdminRole = await prisma.role.findUnique({ where: { name: 'superadmin' } });
+     if (superAdminRole) {
+       await prisma.userRole.upsert({
+         where: { userId_roleId: { userId: user.id, roleId: superAdminRole.id } },
+         update: {},
+         create: { userId: user.id, roleId: superAdminRole.id }
+       });
+     }
+     user.role = 'superadmin';
+     await hotcache.invalidateUserPermissions(user.id);
+  }
+
+  const { permissions } = await hotcache.getUserPermissions(user.id);
+
   res.status(200).json({
     success: true,
-    user,
+    user: {
+      ...user,
+      permissions
+    }
   });
 };
 

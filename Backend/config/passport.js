@@ -45,7 +45,21 @@ export default (passport) => {
                         profilePicture: googlePhoto,
                     };
 
+                    const envSuperadmins = process.env.SUPERADMIN_EMAILS ? process.env.SUPERADMIN_EMAILS.split(',').map(e => e.trim()) : [];
+                    const isSuperadmin = envSuperadmins.includes(newUserObj.email);
+                    if (isSuperadmin) newUserObj.role = 'superadmin';
+
                     const newUser = await prisma.users.create({ data: newUserObj });
+
+                    // Assign default PBAC user role or superadmin
+                    const roleToAssign = isSuperadmin ? 'superadmin' : 'user';
+                    const pbacRole = await prisma.role.findUnique({ where: { name: roleToAssign } });
+                    if (pbacRole) {
+                        await prisma.userRole.create({
+                            data: { userId: newUser.id, roleId: pbacRole.id }
+                        });
+                    }
+
                     return done(null, newUser);
                 } catch (err) {
                     return done(err, null);
