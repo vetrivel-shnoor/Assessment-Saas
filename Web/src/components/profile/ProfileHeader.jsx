@@ -245,9 +245,13 @@ export default function ProfileHeader({
             <span className="text-3xl sm:text-4xl font-black uppercase tracking-tight truncate max-w-full">
               {(user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.fullname) || "Welcome"}
             </span>
-            {user?.role === "admin" && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-red-500 text-white tracking-widest shadow-sm">
-                Admin
+            {user?.role && !['user', 'candidate', 'organisation'].includes(user.role.toLowerCase()) && (
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm border ${
+                user.role.toLowerCase() === 'superadmin' 
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50' 
+                  : 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-gray-300 border-gray-200 dark:border-white/10'
+              }`}>
+                {user.role}
               </span>
             )}
           </div>

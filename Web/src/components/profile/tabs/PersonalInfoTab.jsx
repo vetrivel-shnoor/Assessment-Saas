@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   Phone,
+  Shield,
 } from "lucide-react";
 import { MOCK_USER_META } from "../constants";
 import GoogleIcon from "../../GoogleIcon";
@@ -316,6 +317,7 @@ export default function PersonalInfoTab({ theme, user, setUser }) {
           </div>
         </div>
 
+
         {/* --- Password (New Field) --- */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 mb-1 opacity-50">
@@ -361,11 +363,10 @@ export default function PersonalInfoTab({ theme, user, setUser }) {
               {[1, 2, 3, 4].map((level) => (
                 <div
                   key={level}
-                  className={`h-full flex-1 rounded-full transition-all duration-500 ${
-                    passwordStrength >= level
+                  className={`h-full flex-1 rounded-full transition-all duration-500 ${passwordStrength >= level
                       ? getStrengthColor()
                       : "bg-gray-500/20"
-                  }`}
+                    }`}
                 />
               ))}
             </div>

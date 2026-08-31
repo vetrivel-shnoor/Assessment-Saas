@@ -12,8 +12,10 @@ import {
   Search,
   Sun,
   Moon,
-  UserCircle
+  UserCircle,
+  Shield
 } from 'lucide-react';
+import { TAB_PERMISSIONS, hasPermission } from '../constants/permissions';
 import { useTheme } from '../context/ThemeContext';
 import Logo from '../components/Logo';
 import { useApp } from '../context/AppContext';
@@ -69,12 +71,15 @@ const DashboardLayout = ({ children }) => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Profile', href: '/dashboard/profile', icon: UserCircle },
-    { name: 'Assessments', href: '/dashboard/assessments', icon: FileSignature },
-    { name: 'Candidates', href: '/dashboard/candidates', icon: Users },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiredPermission: TAB_PERMISSIONS.dashboard },
+    { name: 'Profile', href: '/dashboard/profile', icon: UserCircle, requiredPermission: TAB_PERMISSIONS.profile },
+    { name: 'Assessments', href: '/dashboard/assessments', icon: FileSignature, requiredPermission: TAB_PERMISSIONS.assessments },
+    { name: 'Candidates', href: '/dashboard/candidates', icon: Users, requiredPermission: TAB_PERMISSIONS.candidates },
+    { name: 'Roles', href: '/dashboard/roles', icon: Shield, requiredPermission: TAB_PERMISSIONS.roles },
+    { name: 'Settings', href: '/dashboard/settings', icon: Settings, requiredPermission: TAB_PERMISSIONS.settings },
   ];
+
+  const filteredNavigation = navigation.filter(item => hasPermission(user?.permissions, item.requiredPermission));
 
   return (
     <div className="min-h-screen flex font-sans text-gray-900 dark:text-gray-100 selection:bg-emerald-200">
@@ -107,8 +112,8 @@ const DashboardLayout = ({ children }) => {
 
           {/* Sidebar Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
+            {filteredNavigation.map((item) => {
+              const isActive = location.pathname === item.href || (location.pathname.startsWith(item.href) && item.href !== '/dashboard');
               return (
                 <Link
                   key={item.name}

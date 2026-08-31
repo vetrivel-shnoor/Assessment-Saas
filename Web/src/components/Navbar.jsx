@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Sun, Moon, Menu, UserCircle } from 'lucide-react';
+import { Sun, Moon, Menu, UserCircle, X } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import Logo from './Logo';
@@ -11,6 +11,7 @@ const Navbar = () => {
   
   const [blobLoaded, setBlobLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const profileSrc = (user?.profilePicture?.startsWith('http') || user?.profilePicture?.startsWith('blob:'))
     ? user.profilePicture 
@@ -42,11 +43,11 @@ const Navbar = () => {
 
       {/* Navigation Links */}
       <div className="hidden lg:flex items-center space-x-1 bg-white/60 dark:bg-gray-800/60 px-2 py-1.5 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-        <Link to="#" className="px-4 py-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded-full transition-colors">Home</Link>
-        <Link to="#" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">How It Works</Link>
-        <Link to="#" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Features</Link>
-        <Link to="#" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">About</Link>
-        <Link to="#" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Contact</Link>
+        <Link to="#home" className="px-4 py-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded-full transition-colors">Home</Link>
+        <Link to="#how-it-works" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">How It Works</Link>
+        <Link to="#features" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Features</Link>
+        <Link to="#about" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">About</Link>
+        <Link to="#contact" className="px-4 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Contact</Link>
       </div>
 
       {/* Actions */}
@@ -98,10 +99,24 @@ const Navbar = () => {
           </>
         )}
 
-        <button className="lg:hidden p-2 text-gray-600 dark:text-gray-400">
-          <Menu className="w-5 h-5" />
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="lg:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 transition-colors"
+        >
+          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden absolute top-full left-0 w-full bg-white dark:bg-gray-900 shadow-lg border-t border-gray-100 dark:border-gray-800 py-4 flex flex-col px-4 gap-2 animate-in slide-in-from-top-2 fade-in duration-200">
+          <Link to="#home" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all">Home</Link>
+          <Link to="#how-it-works" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all">How It Works</Link>
+          <Link to="#features" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all">Features</Link>
+          <Link to="#about" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all">About</Link>
+          <Link to="#contact" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all">Contact</Link>
+        </div>
+      )}
     </nav>
   );
 };
