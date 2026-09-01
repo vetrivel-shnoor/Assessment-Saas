@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { Shield, Edit, Trash2, Plus, X, Loader2 } from 'lucide-react';
 import api from '../services/api';
+import { TableContainer, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/Table';
 
 const RolesPage = () => {
   const [roles, setRoles] = useState([]);
@@ -102,20 +103,23 @@ const RolesPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Shield className="w-6 h-6 text-emerald-500" />
-              Role Management
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Manage platform roles and their associated permissions.</p>
+      <div className="p-4 sm:p-8 w-full mx-auto space-y-8">
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
+              <Shield size={24} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-tight">Role Management</h1>
+              <p className="text-sm opacity-60">Manage platform roles and their associated permissions.</p>
+            </div>
           </div>
           <button 
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors font-medium text-sm"
+            className="flex items-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-colors font-bold uppercase text-xs tracking-wider"
           >
-            <Plus className="w-4 h-4" />
+            <Plus size={16} />
             Create Role
           </button>
         </div>
@@ -125,60 +129,62 @@ const RolesPage = () => {
             <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                  <th className="py-4 px-6 font-semibold text-gray-900 dark:text-gray-100 text-sm">Role Name</th>
-                  <th className="py-4 px-6 font-semibold text-gray-900 dark:text-gray-100 text-sm">Description</th>
-                  <th className="py-4 px-6 font-semibold text-gray-900 dark:text-gray-100 text-sm">Permissions</th>
-                  <th className="py-4 px-6 font-semibold text-gray-900 dark:text-gray-100 text-sm text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+          <TableContainer>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Role Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Permissions</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {roles.map(role => (
-                  <tr key={role.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
-                    <td className="py-4 px-6">
-                      <span className="font-medium text-gray-900 dark:text-gray-100 capitalize">{role.name}</span>
-                      {role.name === 'superadmin' && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                          System
+                  <TableRow key={role.id}>
+                    <TableCell>
+                        <span className="font-bold">{role.name}</span>
+                        {role.name === 'superadmin' && (
+                          <span className="ml-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                            System
+                          </span>
+                        )}
+                    </TableCell>
+                    <TableCell className="opacity-80 text-sm">
+                        {role.description || 'No description'}
+                    </TableCell>
+                    <TableCell>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400">
+                          {role.permissions.length} permissions
                         </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-gray-500 dark:text-gray-400">
-                      {role.description || 'No description'}
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-                        {role.permissions.length} permissions
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      {role.name !== 'superadmin' ? (
-                        <div className="flex justify-end gap-2">
-                          <button 
-                            onClick={() => handleOpenModal(role)}
-                            className="p-2 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(role.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic">Protected</span>
-                      )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="text-right">
+                        {role.name !== 'superadmin' ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => handleOpenModal(role)}
+                              className="p-2 text-gray-500 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                              title="Edit Role"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(role.id)}
+                              className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                              title="Delete Role"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs uppercase font-bold tracking-widest opacity-30">Protected</span>
+                        )}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </div>
 

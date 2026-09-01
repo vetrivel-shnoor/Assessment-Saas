@@ -112,16 +112,14 @@ export const Login = async (req, res) => {
 
     generateTokenAndSetCookie(res, user.id);
 
+    const fullUser = await hotcache.getUserProfile(user.id);
+    const { permissions } = await hotcache.getUserPermissions(user.id);
+
     res.status(200).json({
       message: "Login successful",
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profilePicture: user.profilePicture,
-        role: user.role,
-        onboardingCompleted: user.onboardingCompleted
+        ...fullUser,
+        permissions
       },
     });
   } catch (error) {
@@ -145,25 +143,13 @@ export const Logout = (req, res) => {
 // 4. ME (Check Auth Status)
 // ==============================================
 export const Me = async (req, res) => {
-  let user = await prisma.users.findUnique({
-      where: { id: req.user.id },
-      select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          profilePicture: true,
-          role: true,
-          phone: true,
-          onboardingCompleted: true,
-          companyName: true,
-          jobTitle: true,
-          skills: true,
-          experienceLevel: true
-      }
-  });
+  let user = await hotcache.getUserProfile(req.user.id);
 
   const envSuperadmins = process.env.SUPERADMIN_EMAILS ? process.env.SUPERADMIN_EMAILS.split(',').map(e => e.trim()) : [];
+  if (process.env.DEFAULT_SUPERADMIN_EMAIL && !envSuperadmins.includes(process.env.DEFAULT_SUPERADMIN_EMAIL)) {
+    envSuperadmins.push(process.env.DEFAULT_SUPERADMIN_EMAIL);
+  }
+
   if (user && envSuperadmins.includes(user.email) && user.role !== 'superadmin') {
      await prisma.users.update({ where: { id: user.id }, data: { role: 'superadmin' } });
      const superAdminRole = await prisma.role.findUnique({ where: { name: 'superadmin' } });
@@ -175,6 +161,26 @@ export const Me = async (req, res) => {
        });
      }
      user.role = 'superadmin';
+     await hotcache.invalidateUserProfile(user.id);
+     await hotcache.invalidateUserPermissions(user.id);
+  } else if (user && user.role === 'superadmin' && !envSuperadmins.includes(user.email)) {
+     await prisma.users.update({ where: { id: user.id }, data: { role: 'user' } });
+     const superAdminRole = await prisma.role.findUnique({ where: { name: 'superadmin' } });
+     const userRole = await prisma.role.findUnique({ where: { name: 'user' } });
+     if (superAdminRole) {
+       await prisma.userRole.deleteMany({
+         where: { userId: user.id, roleId: superAdminRole.id }
+       });
+     }
+     if (userRole) {
+       await prisma.userRole.upsert({
+         where: { userId_roleId: { userId: user.id, roleId: userRole.id } },
+         update: {},
+         create: { userId: user.id, roleId: userRole.id }
+       });
+     }
+     user.role = 'user';
+     await hotcache.invalidateUserProfile(user.id);
      await hotcache.invalidateUserPermissions(user.id);
   }
 
@@ -266,6 +272,8 @@ export const CompleteOnboarding = async (req, res) => {
       where: { id: userId },
       data: updateData
     });
+    
+    await hotcache.invalidateUserProfile(userId);
 
     res.status(200).json({
       message: "Onboarding completed successfully",

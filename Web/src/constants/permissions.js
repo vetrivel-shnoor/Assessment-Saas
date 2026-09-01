@@ -4,6 +4,7 @@ export const TAB_PERMISSIONS = {
   assessments: { action: 'read', subject: 'Assessment' },
   candidates: { action: 'read', subject: 'Candidate' },
   roles: { action: 'manage', subject: 'Role' },
+  users: { action: 'manage', subject: 'User' },
   settings: { action: 'manage', subject: 'Settings' }
 };
 

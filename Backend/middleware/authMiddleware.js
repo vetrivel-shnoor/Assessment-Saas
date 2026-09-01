@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
 import generateTokenAndSetCookie from "../utils/generateToken.js";
+import hotcache from "../utils/hotcache.js";
 
 // 1. Change function signature to accept options (default is empty object)
 export const protect =
@@ -17,19 +18,8 @@ export const protect =
       // 3. Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_if_not_provided');
 
-      // 4. Find user
-      req.user = await prisma.users.findUnique({
-        where: { id: decoded.id },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          profilePicture: true,
-          role: true,
-          // Exclude password and other sensitive fields
-        }
-      });
+      // 4. Find user from cache
+      req.user = await hotcache.getUserProfile(decoded.id);
 
       if (!req.user) {
         return res.status(401).json({ message: "User not found" });

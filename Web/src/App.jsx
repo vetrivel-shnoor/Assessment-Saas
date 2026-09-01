@@ -8,6 +8,7 @@ import AssessmentsPage from './pages/AssessmentsPage';
 import CandidatesPage from './pages/CandidatesPage';
 import SettingsPage from './pages/SettingsPage';
 import RolesPage from './pages/RolesPage';
+import UsersPage from './pages/UsersPage';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider } from './context/AppContext';
 
@@ -24,6 +25,7 @@ function App() {
             <Route path="/dashboard/profile" element={<ProfilePage />} />
             <Route path="/dashboard/assessments" element={<AssessmentsPage />} />
             <Route path="/dashboard/candidates" element={<CandidatesPage />} />
+            <Route path="/dashboard/users" element={<UsersPage />} />
             <Route path="/dashboard/roles" element={<RolesPage />} />
             <Route path="/dashboard/settings" element={<SettingsPage />} />
           </Routes>

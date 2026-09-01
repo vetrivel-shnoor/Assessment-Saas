@@ -14,6 +14,7 @@ export const createRole = async (req, res) => {
       },
       include: { permissions: { include: { permission: true } } }
     });
+    await hotcache.invalidateRoles();
     res.status(201).json({ success: true, role });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -62,11 +63,7 @@ export const getUserEffectivePermissions = async (req, res) => {
 
 export const getAllRoles = async (req, res) => {
   try {
-    const roles = await prisma.role.findMany({
-      include: {
-        permissions: { include: { permission: true } }
-      }
-    });
+    const roles = await hotcache.getRoles();
     res.json({ success: true, roles });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -104,6 +101,7 @@ export const updateRole = async (req, res) => {
     for (const ur of usersWithRole) {
       await hotcache.invalidateUserPermissions(ur.userId);
     }
+    await hotcache.invalidateRoles();
 
     res.json({ success: true, role });
   } catch (error) {
@@ -128,6 +126,7 @@ export const deleteRole = async (req, res) => {
     for (const ur of usersWithRole) {
       await hotcache.invalidateUserPermissions(ur.userId);
     }
+    await hotcache.invalidateRoles();
 
     res.json({ success: true, message: 'Role deleted' });
   } catch (error) {

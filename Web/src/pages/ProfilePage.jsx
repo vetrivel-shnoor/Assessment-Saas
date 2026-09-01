@@ -105,7 +105,7 @@ export default function ProfilePage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-[1400px] mx-auto">
+      <div className="w-full mx-auto px-4 sm:px-8 py-4 sm:py-8">
         {/* --- HEADER --- */}
         <ProfileHeader
           user={user}

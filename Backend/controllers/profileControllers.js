@@ -1,6 +1,7 @@
 import prisma from "../config/prisma.js";
 import argon2 from "argon2";
 import { enqueueMedia } from "../services/mediaService.js";
+import hotcache from "../utils/hotcache.js";
 
 // --- Configuration: Country Digit Rules ---
 const COUNTRY_RULES = {
@@ -73,6 +74,8 @@ export const PersonalInfo = async (req, res) => {
       where: { id: userId },
       data: updateData,
     });
+    
+    await hotcache.invalidateUserProfile(userId);
     
     // omit password from response
     const { password: _, ...userResponse } = updatedUser;

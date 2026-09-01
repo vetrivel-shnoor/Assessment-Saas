@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import { connection } from "../services/queue.js";
 import minioClient from "../config/minio.js";
+import hotcache from "../utils/hotcache.js";
 
 // 1. DISABLE SHARP CACHE
 sharp.cache(false);
@@ -110,6 +111,10 @@ export const worker = new Worker(
         data: { [fieldName]: newResultPath },
       });
       console.log(`[Worker] [DB] Database updated for ${fileId}`);
+
+      if (modelName.toLowerCase() === 'users') {
+        await hotcache.invalidateUserProfile(fileId);
+      }
 
       // 7. Cleanup Old Image
       if (oldPath && oldPath !== newResultPath) {

@@ -13,7 +13,8 @@ import {
   Sun,
   Moon,
   UserCircle,
-  Shield
+  Shield,
+  UserCog
 } from 'lucide-react';
 import { TAB_PERMISSIONS, hasPermission } from '../constants/permissions';
 import { useTheme } from '../context/ThemeContext';
@@ -75,6 +76,7 @@ const DashboardLayout = ({ children }) => {
     { name: 'Profile', href: '/dashboard/profile', icon: UserCircle, requiredPermission: TAB_PERMISSIONS.profile },
     { name: 'Assessments', href: '/dashboard/assessments', icon: FileSignature, requiredPermission: TAB_PERMISSIONS.assessments },
     { name: 'Candidates', href: '/dashboard/candidates', icon: Users, requiredPermission: TAB_PERMISSIONS.candidates },
+    { name: 'Users', href: '/dashboard/users', icon: UserCog, requiredPermission: TAB_PERMISSIONS.users },
     { name: 'Roles', href: '/dashboard/roles', icon: Shield, requiredPermission: TAB_PERMISSIONS.roles },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings, requiredPermission: TAB_PERMISSIONS.settings },
   ];

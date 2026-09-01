@@ -11,6 +11,7 @@ import minioClient from './config/minio.js';
 import authRoutes from './routes/authRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import pbacRoutes from './routes/pbacRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import passportConfig from './config/passport.js';
 import path from 'path';
 import { bootstrapPermissions } from './utils/bootstrapPermissions.js';
@@ -63,6 +64,7 @@ passportConfig(passport);
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/pbac', pbacRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

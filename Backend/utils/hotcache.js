@@ -3,6 +3,8 @@ import prisma from '../config/prisma.js';
 
 const PERMISSIONS_PREFIX = 'user_permissions:';
 const CONFIG_PREFIX = 'sys_config:';
+const ROLES_KEY = 'pbac_roles';
+const PROFILE_PREFIX = 'user_profile:';
 
 /**
  * Fetch a user's permissions, cache them if not cached.
@@ -96,9 +98,81 @@ export const setSystemConfig = async (key, value, expiry = 86400) => {
   }
 };
 
+export const getRoles = async () => {
+  try {
+    const cached = await redis.get(ROLES_KEY);
+    if (cached) return JSON.parse(cached);
+
+    const roles = await prisma.role.findMany({
+      include: {
+        permissions: { include: { permission: true } }
+      }
+    });
+
+    await redis.setex(ROLES_KEY, 86400, JSON.stringify(roles));
+    return roles;
+  } catch (error) {
+    console.error('HotCache getRoles error:', error);
+    return [];
+  }
+};
+
+export const invalidateRoles = async () => {
+  try {
+    await redis.del(ROLES_KEY);
+  } catch (error) {
+    console.error('HotCache invalidateRoles error:', error);
+  }
+};
+
+export const getUserProfile = async (userId) => {
+  try {
+    const cached = await redis.get(`${PROFILE_PREFIX}${userId}`);
+    if (cached) return JSON.parse(cached);
+
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        profilePicture: true,
+        role: true,
+        phone: true,
+        onboardingCompleted: true,
+        companyName: true,
+        jobTitle: true,
+        skills: true,
+        experienceLevel: true
+      }
+    });
+
+    if (user) {
+      await redis.setex(`${PROFILE_PREFIX}${userId}`, 86400, JSON.stringify(user));
+    }
+    return user;
+  } catch (error) {
+    console.error('HotCache getUserProfile error:', error);
+    return null;
+  }
+};
+
+export const invalidateUserProfile = async (userId) => {
+  try {
+    await redis.del(`${PROFILE_PREFIX}${userId}`);
+  } catch (error) {
+    console.error('HotCache invalidateUserProfile error:', error);
+  }
+};
+
 export default {
   getUserPermissions,
   invalidateUserPermissions,
   getSystemConfig,
-  setSystemConfig
+  setSystemConfig,
+  getRoles,
+  invalidateRoles,
+  getUserProfile,
+  invalidateUserProfile
 };
