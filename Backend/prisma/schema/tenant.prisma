@@ -1,0 +1,45 @@
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     users[]
+
+  @@map("tenants")
+}
+
+model Plan {
+  id             String       @id @default(uuid())
+  name           String       @unique // e.g. "Free", "Pro", "Enterprise"
+  price          Float        @default(0.0)
+  maxUsers       Int          @default(5)
+  maxAssessments Int          @default(10)
+  maxCandidates  Int          @default(50)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  tenants        Tenant[]
+  planModules    PlanModule[]
+
+  @@map("plans")
+}
+
+model Module {
+  id          String       @id @default(uuid())
+  name        String       @unique // e.g. "Assessments", "Interviews", "ATS"
+  description String?
+  planModules PlanModule[]
+
+  @@map("modules")
+}
+
+model PlanModule {
+  planId   String
+  moduleId String
+  plan     Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([planId, moduleId])
+  @@map("plan_modules")
+}

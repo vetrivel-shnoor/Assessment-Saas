@@ -5,6 +5,7 @@ import generateTokenAndSetCookie from "../utils/generateToken.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { Login, Signup, Logout, Me, resetPassword, Config, CompleteOnboarding } from "../controllers/authControllers.js";
 import { findOrCreateGoogleUser } from "../services/authService.js";
+import hotcache from "../utils/hotcache.js";
 
 const router = express.Router();
 
@@ -66,15 +67,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
             const user = await findOrCreateGoogleUser(payload);
             generateTokenAndSetCookie(res, user.id);
+            const fullUser = await hotcache.getUserProfile(user.id);
+            const { permissions } = await hotcache.getUserPermissions(user.id);
 
             res.status(200).json({
                 success: true,
                 user: {
-                    id: user.id,
-                    email: user.email,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    profilePicture: user.profilePicture
+                    ...fullUser,
+                    permissions
                 },
                 message: "Google One Tap Login Successful",
             });

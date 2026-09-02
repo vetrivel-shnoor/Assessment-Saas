@@ -12,9 +12,11 @@ import authRoutes from './routes/authRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import pbacRoutes from './routes/pbacRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import tenantRoutes from './routes/tenantRoutes.js';
 import passportConfig from './config/passport.js';
 import path from 'path';
 import { bootstrapPermissions } from './utils/bootstrapPermissions.js';
+import { bootstrapTenantAndPlans } from './utils/bootstrapTenant.js';
 
 // Background workers are now started in a separate process
 
@@ -65,6 +67,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/pbac', pbacRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/tenants', tenantRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -86,6 +89,9 @@ const startServer = async () => {
     
     // 1b. Bootstrap permissions and roles
     await bootstrapPermissions();
+
+    // 1c. Bootstrap tenants and plans
+    await bootstrapTenantAndPlans();
   } catch (error) {
     logger.error(`[Prisma] Failed to connect to PostgreSQL: ${error.message}`);
     process.exit(1);
