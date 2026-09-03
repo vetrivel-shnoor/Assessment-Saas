@@ -21,4 +21,5 @@ model users {
 
   userRoles       UserRole[]
   userPermissions UserPermission[]
+  userTenants     UserTenant[]
 }

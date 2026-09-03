@@ -1,22 +1,37 @@
 model Tenant {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   name      String
   planId    String
-  plan      Plan     @relation(fields: [planId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  plan      Plan         @relation(fields: [planId], references: [id])
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   users     users[]
+  userTenants UserTenant[]
 
   @@map("tenants")
 }
 
+model UserTenant {
+  userId   String
+  tenantId String
+  role     String   @default("member")
+  user     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  joinedAt DateTime @default(now())
+
+  @@id([userId, tenantId])
+  @@map("user_tenants")
+}
+
 model Plan {
   id             String       @id @default(uuid())
-  name           String       @unique // e.g. "Free", "Pro", "Enterprise"
+  name           String       @unique
   price          Float        @default(0.0)
+  yearlyPrice    Float?
   maxUsers       Int          @default(5)
   maxAssessments Int          @default(10)
   maxCandidates  Int          @default(50)
+  isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   tenants        Tenant[]

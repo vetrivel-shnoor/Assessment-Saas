@@ -116,8 +116,17 @@ const startServer = async () => {
     // Don't exit on minio failure by default, just log it.
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     logger.info(`[Server] Running on http://localhost:${PORT}`);
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.error(`[Server] Port ${PORT} is already in use. Kill the existing process and restart.`);
+      process.exit(1);
+    } else {
+      throw err;
+    }
   });
 };
 

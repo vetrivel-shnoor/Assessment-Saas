@@ -1,22 +1,42 @@
 export const APP_MODULES = [
   {
     name: 'Assessments',
-    description: 'Create and manage candidate assessments',
-    plans: ['Free Plan', 'Pro Plan', 'Enterprise Plan']
+    description: 'Create & manage proctored assessments',
+    plans: ['Free', 'Pro', 'Enterprise']
   },
   {
     name: 'Candidates',
-    description: 'Manage candidates, tracking, and profiles',
-    plans: ['Free Plan', 'Pro Plan', 'Enterprise Plan']
+    description: 'Manage candidate profiles & tracking',
+    plans: ['Free', 'Pro', 'Enterprise']
   },
   {
-    name: 'Interviews',
-    description: 'Conduct live coding interviews',
-    plans: ['Pro Plan', 'Enterprise Plan']
+    name: 'Live Interviews',
+    description: 'Live coding & video interview sessions',
+    plans: ['Pro', 'Enterprise']
+  },
+  {
+    name: 'AI Proctoring',
+    description: 'AI-powered webcam & screen monitoring',
+    plans: ['Pro', 'Enterprise']
+  },
+  {
+    name: 'Analytics',
+    description: 'Advanced reporting & performance insights',
+    plans: ['Pro', 'Enterprise']
+  },
+  {
+    name: 'Custom Branding',
+    description: 'White-label & custom domain support',
+    plans: ['Enterprise']
+  },
+  {
+    name: 'SSO & SAML',
+    description: 'Single sign-on & SAML integration',
+    plans: ['Enterprise']
   },
   {
     name: 'Settings',
-    description: 'Manage organization settings and billing',
-    plans: ['Free Plan', 'Pro Plan', 'Enterprise Plan']
+    description: 'Organisation settings & billing management',
+    plans: ['Free', 'Pro', 'Enterprise']
   }
 ];

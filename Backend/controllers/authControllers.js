@@ -54,7 +54,7 @@ export const Signup = async (req, res) => {
         password: hashedPassword,
         phone,
         role,
-        onboardingCompleted: true,
+        onboardingCompleted: role === 'candidate', // true for candidates, false for organisations
         companyName: role === 'organisation' ? companyName : null,
         jobTitle: role === 'organisation' ? jobTitle : null,
         skills: role === 'candidate' ? skills : null,
@@ -241,11 +241,11 @@ export const Config = (req, res) => {
 };
 
 // ==============================================
-// 7. COMPLETE ONBOARDING (For OAuth Users)
+// 7. COMPLETE ONBOARDING
 // ==============================================
 export const CompleteOnboarding = async (req, res) => {
   try {
-    const { userType, companyName, jobTitle, skills, experienceLevel, firstName, lastName, phone } = req.body;
+    const { userType, companyName, planId } = req.body;
     const userId = req.user.id;
 
     if (!userType) {
@@ -253,27 +253,38 @@ export const CompleteOnboarding = async (req, res) => {
     }
 
     const role = userType === 'organisation' ? 'organisation' : 'candidate';
-    
-    // Construct data payload, only updating name/phone if they were provided
+
     const updateData = {
-        role,
-        onboardingCompleted: true,
-        companyName: role === 'organisation' ? companyName : null,
-        jobTitle: role === 'organisation' ? jobTitle : null,
-        skills: role === 'candidate' ? skills : null,
-        experienceLevel: role === 'candidate' ? experienceLevel : null
+      role,
+      onboardingCompleted: true,
+      companyName: role === 'organisation' ? (companyName || null) : null,
     };
 
-    if (firstName) updateData.firstName = firstName;
-    if (lastName) updateData.lastName = lastName;
-    if (phone) updateData.phone = phone;
+    if (role === 'organisation') {
+      if (!planId) {
+        return res.status(400).json({ message: "Plan is required for organisations" });
+      }
+      const tenantName = companyName || "My Organisation";
+      const newTenant = await prisma.tenant.create({
+        data: {
+          name: tenantName,
+          planId,
+          userTenants: {
+            create: { userId, role: 'owner' }
+          }
+        }
+      });
+      updateData.tenantId = newTenant.id;
+    }
 
     const updatedUser = await prisma.users.update({
       where: { id: userId },
       data: updateData
     });
-    
+
     await hotcache.invalidateUserProfile(userId);
+
+    const { permissions } = await hotcache.getUserPermissions(userId);
 
     res.status(200).json({
       message: "Onboarding completed successfully",
@@ -283,7 +294,9 @@ export const CompleteOnboarding = async (req, res) => {
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         role: updatedUser.role,
-        onboardingCompleted: updatedUser.onboardingCompleted
+        onboardingCompleted: updatedUser.onboardingCompleted,
+        tenantId: updatedUser.tenantId,
+        permissions
       }
     });
   } catch (error) {
