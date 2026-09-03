@@ -26,6 +26,23 @@ export const protect =
       }
 
       // ============================================================
+      // 4b. OVERRIDE TENANT FROM HEADERS (Frontend Context)
+      // ============================================================
+      const headerTenantId = req.headers['x-tenant-id'];
+      const headerWorkspace = req.headers['x-workspace-context'];
+
+      if (headerWorkspace) {
+        req.user.workspaceContext = headerWorkspace;
+        if (headerWorkspace === 'personal' || headerWorkspace === 'platform-admin') {
+          req.user.tenantId = null; // Enforce null tenantId for these contexts
+        } else if (headerWorkspace === 'tenant' && headerTenantId) {
+          req.user.tenantId = headerTenantId;
+        }
+      } else if (headerTenantId) {
+        req.user.tenantId = headerTenantId;
+      }
+
+      // ============================================================
       // 5. ADMIN CHECK (New Logic)
       // ============================================================
       if (admin && req.user.role !== "admin") {

@@ -144,7 +144,9 @@ export const getUserProfile = async (userId) => {
         companyName: true,
         jobTitle: true,
         skills: true,
-        experienceLevel: true
+        experienceLevel: true,
+        tenantId: true,
+        tenant: true
       }
     });
 

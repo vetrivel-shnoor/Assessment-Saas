@@ -1,5 +1,6 @@
 import prisma from '../config/prisma.js';
 import hotcache from '../utils/hotcache.js';
+import { enqueueMedia } from "../services/mediaService.js";
 
 // ============================================================
 // PLANS
@@ -116,6 +117,16 @@ export const getMyTenants = async (req, res) => {
 export const switchTenant = async (req, res) => {
   try {
     const { tenantId } = req.body;
+    
+    if (!tenantId) {
+      await prisma.users.update({
+        where: { id: req.user.id },
+        data: { tenantId: null },
+      });
+      await hotcache.invalidateUserProfile(req.user.id);
+      return res.status(200).json({ message: 'Switched to personal workspace', tenantId: null });
+    }
+
     const userTenant = await prisma.userTenant.findUnique({
       where: { userId_tenantId: { userId: req.user.id, tenantId } },
     });
@@ -186,5 +197,85 @@ export const updateTenantPlan = async (req, res) => {
   } catch (error) {
     console.error('Update Tenant Plan Error:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+export const createTenant = async (req, res) => {
+  try {
+    const { name, planId, billingCycle } = req.body;
+    const userId = req.user.id;
+
+    if (!name || !planId) {
+      return res.status(400).json({ message: 'Name and planId are required' });
+    }
+
+    const newTenant = await prisma.tenant.create({
+      data: {
+        name,
+        planId,
+        billingCycle: billingCycle || 'monthly',
+        userTenants: {
+          create: { userId, role: 'owner' },
+        },
+      },
+    });
+
+    // Optionally switch user to this new tenant right away
+    await prisma.users.update({
+      where: { id: userId },
+      data: { tenantId: newTenant.id, role: 'organisation' },
+    });
+
+    await hotcache.invalidateUserProfile(userId);
+
+    res.status(201).json({ message: 'Organisation created successfully', tenant: newTenant });
+  } catch (error) {
+    console.error('Create Tenant Error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// ============================================================
+// TENANT PROFILE UPDATES
+// ============================================================
+
+export const updateMyTenantName = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+
+    const tenantId = req.user.tenantId;
+    if (!tenantId) return res.status(404).json({ message: "No active organisation" });
+
+    const updatedTenant = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { name },
+    });
+    res.status(200).json({ message: "Organisation name updated", tenant: updatedTenant });
+  } catch (error) {
+    console.error("Update Tenant Name Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+export const uploadTenantLogo = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    if (!tenantId) return res.status(404).json({ message: "No active organisation" });
+    
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image uploaded" });
+    }
+
+    await enqueueMedia(req.file, tenantId, "tenant", "logoUrl", req.user.id);
+
+    res.status(200).json({
+      success: true,
+      message: "Logo upload started. Processing in background...",
+    });
+  } catch (error) {
+    console.error("Logo Upload Error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

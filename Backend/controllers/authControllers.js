@@ -9,14 +9,13 @@ import hotcache from "../utils/hotcache.js";
 export const Signup = async (req, res) => {
   try {
     const { 
-      fullname, username, email, password, confirmPassword, phone, 
+      fullname, email, password, confirmPassword, phone, 
       userType, companyName, jobTitle, skills, experienceLevel 
     } = req.body;
 
-    const finalUsername = username || email.split("@")[0];
     const finalFullname = fullname || "User";
 
-    if (!email || !password || !finalUsername) {
+    if (!email || !password) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -186,6 +185,16 @@ export const Me = async (req, res) => {
 
   const { permissions } = await hotcache.getUserPermissions(user.id);
 
+  // Override response with header-provided workspace context if available
+  if (req.user.workspaceContext) {
+    user.workspaceContext = req.user.workspaceContext;
+    if (req.user.workspaceContext === 'personal' || req.user.workspaceContext === 'platform-admin') {
+      user.tenantId = null;
+    } else if (req.user.workspaceContext === 'tenant' && req.user.tenantId) {
+      user.tenantId = req.user.tenantId;
+    }
+  }
+
   res.status(200).json({
     success: true,
     user: {
@@ -245,7 +254,7 @@ export const Config = (req, res) => {
 // ==============================================
 export const CompleteOnboarding = async (req, res) => {
   try {
-    const { userType, companyName, planId } = req.body;
+    const { userType, companyName, planId, billing } = req.body;
     const userId = req.user.id;
 
     if (!userType) {
@@ -269,6 +278,7 @@ export const CompleteOnboarding = async (req, res) => {
         data: {
           name: tenantName,
           planId,
+          billingCycle: billing || 'monthly',
           userTenants: {
             create: { userId, role: 'owner' }
           }

@@ -1,12 +1,14 @@
 model Tenant {
   id        String       @id @default(uuid())
   name      String
-  planId    String
-  plan      Plan         @relation(fields: [planId], references: [id])
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  users     users[]
-  userTenants UserTenant[]
+  planId       String
+  plan         Plan         @relation(fields: [planId], references: [id])
+  billingCycle String       @default("monthly")
+  logoUrl      String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  users        users[]
+  userTenants  UserTenant[]
 
   @@map("tenants")
 }

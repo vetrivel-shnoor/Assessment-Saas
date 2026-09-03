@@ -115,6 +115,9 @@ export const worker = new Worker(
       if (modelName.toLowerCase() === 'users') {
         await hotcache.invalidateUserProfile(fileId);
       }
+      if (job.data.uploaderId) {
+        await hotcache.invalidateUserProfile(job.data.uploaderId);
+      }
 
       // 7. Cleanup Old Image
       if (oldPath && oldPath !== newResultPath) {

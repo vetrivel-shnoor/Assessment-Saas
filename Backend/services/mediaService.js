@@ -7,7 +7,7 @@ import { mediaQueue } from "./queue.js";
  * @param {String} modelName - The Prisma model name (e.g. "users").
  * @param {String} fieldName - The field in the model to update (e.g. "profilePicture").
  */
-export const enqueueMedia = async (file, fileId, modelName, fieldName) => {
+export const enqueueMedia = async (file, fileId, modelName, fieldName, uploaderId = null) => {
   await mediaQueue.add("process-media", {
     fileId,
     filePath: file.path,
@@ -15,5 +15,6 @@ export const enqueueMedia = async (file, fileId, modelName, fieldName) => {
     outputDir: "public/uploads/",
     modelName,
     fieldName,
+    uploaderId,
   });
 };
