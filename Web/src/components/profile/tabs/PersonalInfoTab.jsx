@@ -13,7 +13,7 @@ import {
   Phone,
   Shield,
 } from "lucide-react";
-import { MOCK_USER_META } from "../constants";
+
 import GoogleIcon from "../../GoogleIcon";
 import Modal from "../../layout/Modal";
 import { UpdatePersonalInfo } from "../../../services/api";

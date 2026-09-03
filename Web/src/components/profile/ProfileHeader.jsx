@@ -137,8 +137,6 @@ export default function ProfileHeader({
 
   // State to track if image failed to load (e.g. 429 error)
   const [imgError, setImgError] = useState(false);
-  // State to track if blob image has finished loading
-  const [blobLoaded, setBlobLoaded] = useState(false);
 
   const handleFileChange = (e) => {
     if (e.target.files?.[0]) {
@@ -158,17 +156,15 @@ export default function ProfileHeader({
   const getImageUrl = (path) => {
     if (!path) return null;
     if (path.startsWith("http") || path.startsWith("blob:")) return path;
-    return `${API_BASE_URL}${path}`;
+    return `${API_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   };
 
   const profileSrc = getImageUrl(user?.profilePicture);
-  const isDirectUrl = profileSrc?.startsWith("http");
 
   // Reset states when source changes
   useEffect(() => {
     setImgError(false);
-    if (!isDirectUrl) setBlobLoaded(false);
-  }, [profileSrc, isDirectUrl]);
+  }, [profileSrc]);
 
   return (
     <>
@@ -197,8 +193,7 @@ export default function ProfileHeader({
             }}
           >
             {/* 1. SKELETON: Show only if local blob loading OR global loading */}
-            {(isLoading ||
-              (!isDirectUrl && !blobLoaded && !imgError && profileSrc)) && (
+            {isLoading && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-200/20 dark:bg-white/10 backdrop-blur-md animate-pulse" />
               )}
 
@@ -209,16 +204,10 @@ export default function ProfileHeader({
                 src={profileSrc}
                 alt="Profile"
                 // referrerPolicy="no-referrer" helps avoid 403/429 errors from Google
-                referrerPolicy="no-referrer"
-                className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-300 ${
-                  // If direct URL: show immediately. If blob: wait for load.
-                  isDirectUrl || blobLoaded ? "opacity-100" : "opacity-0"
-                  }`}
-                onLoad={() => setBlobLoaded(true)}
+                className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-300 opacity-100`}
                 onError={() => {
                   // If error (like 429), set error state to trigger fallback
                   setImgError(true);
-                  setBlobLoaded(true);
                 }}
               />
             ) : (

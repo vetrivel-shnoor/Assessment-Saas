@@ -18,15 +18,16 @@ const DashboardRedirect = () => {
   if (isValidating) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div></div>;
   if (!user) return <Navigate to="/login" replace />;
   
-  let scope = '';
-  const role = user.role?.toUpperCase();
-  if (role === 'SUPERADMIN' || role === 'ADMIN') {
-    scope = 'admin';
-  } else if (role === 'ORGANISATION') {
-    scope = 'org';
+  const currentWorkspaceContext = localStorage.getItem('workspaceContext') || 'personal';
+
+  let basePath = '/dashboard/home';
+  if (currentWorkspaceContext === 'platform-admin') {
+    basePath = '/dashboard/admin';
+  } else if (currentWorkspaceContext === 'tenant') {
+    basePath = '/dashboard/org';
   }
   
-  return <Navigate to={scope ? `/dashboard/${scope}` : '/dashboard/home'} replace />;
+  return <Navigate to={basePath} replace />;
 };
 
 const dashboardRoutes = (

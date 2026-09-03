@@ -75,6 +75,14 @@ export const AppProvider = ({ children }) => {
     };
 
     verifyUser();
+
+    // Re-verify user when tenant gets updated (e.g. logo changes)
+    const handleTenantUpdated = () => {
+      verifyUser();
+    };
+    window.addEventListener("tenant-updated", handleTenantUpdated);
+
+    return () => window.removeEventListener("tenant-updated", handleTenantUpdated);
   }, []);
 
   useEffect(() => {

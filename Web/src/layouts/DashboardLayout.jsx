@@ -24,6 +24,7 @@ import api from '../services/api';
 import Modal from '../components/layout/Modal';
 import TenantSwitcher from '../components/layout/TenantSwitcher';
 import { getOnboardingStep } from '../context/AppContext';
+import { DASHBOARD_TABS } from '../constants/navigation';
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -34,15 +35,15 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { user, setUser } = useApp();
+  const currentWorkspaceContext = localStorage.getItem('workspaceContext') || 'personal';
 
-  let scope = '';
-  const role = user?.role?.toUpperCase();
-  if (role === 'SUPERADMIN' || role === 'ADMIN') {
-    scope = 'admin';
-  } else if (role === 'ORGANISATION') {
-    scope = 'org';
+  // Determine base path based on workspace context
+  let basePath = '/dashboard';
+  if (currentWorkspaceContext === 'platform-admin') {
+    basePath = '/dashboard/admin';
+  } else if (currentWorkspaceContext === 'tenant') {
+    basePath = '/dashboard/org';
   }
-  const basePath = scope ? `/dashboard/${scope}` : '/dashboard';
 
   const profileSrc = (user?.profilePicture?.startsWith('http') || user?.profilePicture?.startsWith('blob:'))
     ? user.profilePicture 
@@ -91,17 +92,16 @@ const DashboardLayout = () => {
     }
   };
 
-  const navigation = [
-    { name: 'Dashboard', href: basePath, icon: LayoutDashboard, requiredPermission: TAB_PERMISSIONS.dashboard },
-    { name: 'Profile', href: `${basePath}/profile`, icon: UserCircle, requiredPermission: TAB_PERMISSIONS.profile },
-    { name: 'Assessments', href: `${basePath}/assessments`, icon: FileSignature, requiredPermission: TAB_PERMISSIONS.assessments },
-    { name: 'Candidates', href: `${basePath}/candidates`, icon: Users, requiredPermission: TAB_PERMISSIONS.candidates },
-    { name: 'Users', href: `${basePath}/users`, icon: UserCog, requiredPermission: TAB_PERMISSIONS.users },
-    { name: 'Roles', href: `${basePath}/roles`, icon: Shield, requiredPermission: TAB_PERMISSIONS.roles },
-    { name: 'Settings', href: `${basePath}/settings`, icon: Settings, requiredPermission: TAB_PERMISSIONS.settings },
-  ];
+  const navigation = DASHBOARD_TABS.map(tab => ({
+    ...tab,
+    href: `${basePath}${tab.path}`
+  }));
 
-  const filteredNavigation = navigation.filter(item => hasPermission(user?.permissions, item.requiredPermission));
+  const filteredNavigation = navigation.filter(item => {
+    if (!hasPermission(user, item.requiredPermission)) return false;
+    if (item.requireWorkspace && !item.requireWorkspace.includes(currentWorkspaceContext)) return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen flex font-sans text-gray-900 dark:text-gray-100 selection:bg-emerald-200">

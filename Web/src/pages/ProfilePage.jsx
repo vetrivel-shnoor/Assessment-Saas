@@ -10,13 +10,12 @@ import toast from "react-hot-toast";
 
 // Import Components
 import ProfileHeader from "../components/profile/ProfileHeader";
-import ProfileSidebar from "../components/profile/ProfileSidebar";
 
 // Import Tabs
 import PersonalInfoTab from "../components/profile/tabs/PersonalInfoTab";
 
 // Import Constants
-import { PROFILE_TABS } from "../components/profile/constants";
+import { PROFILE_TABS } from "../constants/navigation";
 
 // Map IDs to Component Objects
 const TAB_COMPONENTS = {
@@ -115,8 +114,8 @@ export default function ProfilePage() {
           isLoading={isUploading}
         />
 
-        {/* --- DYNAMIC CONTENT AREA --- */}
-        <div className="mt-8">
+        {/* --- MAIN CONTENT --- */}
+        <div className="mt-8 w-full max-w-4xl mx-auto">
           <AnimatePresence mode="wait">
             {ActiveComponent && (
               <motion.div
@@ -126,11 +125,7 @@ export default function ProfilePage() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                <ActiveComponent
-                  theme={theme}
-                  user={user}
-                  setUser={setUser}
-                />
+                <ActiveComponent theme={theme} user={user} setUser={setUser} />
               </motion.div>
             )}
           </AnimatePresence>

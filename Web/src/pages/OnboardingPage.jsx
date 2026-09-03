@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Building2, Check, ChevronRight, ChevronLeft,
@@ -9,6 +9,7 @@ import { useApp, getOnboardingStep } from '../context/AppContext';
 import Logo from '../components/Logo';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { Card, CardContent } from '../components/Card';
 
 /* ─────────────────────────────────────────────
    Step indicator
@@ -96,9 +97,6 @@ const BillingToggle = ({ billing, setBilling }) => (
         }`}
       >
         Yearly
-        <span className="text-[0.6rem] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">
-          SAVE 20%
-        </span>
       </button>
     </div>
   </div>
@@ -108,46 +106,54 @@ const BillingToggle = ({ billing, setBilling }) => (
    Plan Card
 ───────────────────────────────────────────── */
 const PlanCard = ({ plan, selected, billing, onSelect }) => {
-  const styles = PLAN_STYLES[plan.name] || PLAN_STYLES.Free;
+  const getStyle = (name) => {
+    const n = name?.toLowerCase() || '';
+    if (n.includes('enterprise')) return PLAN_STYLES.Enterprise;
+    if (n.includes('pro')) return PLAN_STYLES.Pro;
+    return PLAN_STYLES.Free;
+  };
+  const styles = getStyle(plan.name);
   const displayPrice = billing === 'yearly' ? (plan.yearlyPrice ?? plan.price) : plan.price;
   const isSelected = selected === plan.id;
 
   return (
-    <div
+    <Card
       onClick={() => onSelect(plan.id)}
-      className={`relative cursor-pointer rounded-2xl border-2 p-5 transition-all duration-300 flex flex-col gap-4
-        ${isSelected ? styles.active : `${styles.ring} hover:border-emerald-300 dark:hover:border-emerald-700`}
-        bg-white dark:bg-gray-900/80`}
+      className={`relative cursor-pointer transition-all duration-300 flex flex-col gap-4 min-w-[85vw] sm:min-w-[300px] shrink-0
+        ${isSelected ? styles.active : `${styles.ring} hover:border-emerald-300 dark:hover:border-emerald-700`}`}
     >
-      {/* Popular badge */}
-      {styles.popular && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="text-[0.65rem] font-bold bg-emerald-500 text-white px-3 py-1 rounded-full shadow">
-            MOST POPULAR
-          </span>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <span className={`inline-block text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md mb-2 ${styles.badge}`}>
-            {plan.name}
-          </span>
-          <div className="flex items-end gap-1">
-            <span className={`text-2xl font-extrabold ${styles.accent}`}>
-              {displayPrice === 0 ? 'Free' : `$${displayPrice}`}
+      <CardContent className="p-5 flex flex-col gap-4 flex-1">
+        {/* Popular badge */}
+        {styles.popular && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span className="text-[0.65rem] font-bold bg-emerald-500 text-white px-3 py-1 rounded-full shadow">
+              MOST POPULAR
             </span>
-            {displayPrice > 0 && (
-              <span className="text-xs text-gray-400 mb-0.5">/mo</span>
-            )}
           </div>
-          {billing === 'yearly' && plan.yearlyPrice != null && plan.yearlyPrice > 0 && (
-            <p className="text-[0.65rem] text-gray-400 dark:text-gray-500">
-              billed ${plan.yearlyPrice * 12}/year
-            </p>
-          )}
-        </div>
+        )}
+
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <span className={`inline-block text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md mb-2 ${styles.badge}`}>
+              {plan.name}
+            </span>
+            <div className="flex items-end gap-1">
+              <span className={`text-2xl font-extrabold ${styles.accent}`}>
+                {displayPrice === 0 ? 'Free' : `₹${displayPrice}`}
+              </span>
+              {displayPrice > 0 && (
+                <span className="text-xs text-gray-400 mb-0.5">/mo</span>
+              )}
+            </div>
+            <div className="min-h-[1rem] mt-0.5">
+              {billing === 'yearly' && plan.yearlyPrice != null && plan.yearlyPrice > 0 && (
+                <p className="text-[0.65rem] text-gray-400 dark:text-gray-500">
+                  billed ₹{plan.yearlyPrice * 12}/year
+                </p>
+              )}
+            </div>
+          </div>
 
         {/* Checkmark when selected */}
         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
@@ -160,7 +166,7 @@ const PlanCard = ({ plan, selected, billing, onSelect }) => {
       </div>
 
       {/* Features (modules) */}
-      <ul className="space-y-2">
+      <ul className="space-y-2 flex-1">
         {plan.features.map((feat, i) => {
           const Icon = MODULE_ICONS[feat.name] || Zap;
           return (
@@ -175,17 +181,18 @@ const PlanCard = ({ plan, selected, billing, onSelect }) => {
       {/* Limits */}
       <div className="border-t border-gray-100 dark:border-gray-800 pt-3 grid grid-cols-3 gap-2 text-center">
         {[
-          { label: 'Users', value: plan.maxUsers >= 9999 ? '∞' : plan.maxUsers },
-          { label: 'Assessments', value: plan.maxAssessments >= 9999 ? '∞' : plan.maxAssessments },
-          { label: 'Candidates', value: plan.maxCandidates >= 9999 ? '∞' : plan.maxCandidates },
+          { label: 'Users', value: plan.maxUsers === -1 || plan.maxUsers >= 9999 ? '∞' : plan.maxUsers },
+          { label: 'Assessments', value: plan.maxAssessments === -1 || plan.maxAssessments >= 9999 ? '∞' : plan.maxAssessments },
+          { label: 'Candidates', value: plan.maxCandidates === -1 || plan.maxCandidates >= 9999 ? '∞' : plan.maxCandidates },
         ].map(({ label, value }) => (
           <div key={label}>
             <p className={`text-sm font-bold ${styles.accent}`}>{value}</p>
             <p className="text-[0.6rem] text-gray-400 dark:text-gray-500">{label}</p>
           </div>
         ))}
-      </div>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -210,6 +217,7 @@ const OnboardingPage = () => {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
+  const plansContainerRef = useRef(null);
 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -218,20 +226,29 @@ const OnboardingPage = () => {
   useEffect(() => {
     if (!isValidating) {
       if (!user) navigate('/login');
-      else if (user.onboardingCompleted) navigate('/dashboard');
       else {
-        // Resume at the right step from URL param or auto-detect
-        const stepParam = parseInt(searchParams.get('step'), 10);
-        const autoStep = getOnboardingStep(user);
-        const initialStep = !isNaN(stepParam) ? stepParam : (autoStep ?? 0);
-        setStep(initialStep);
+        const action = searchParams.get('action');
+        if (action === 'create-org') {
+          // Skip role selection
+          setUserType('organisation');
+          const stepParam = parseInt(searchParams.get('step'), 10);
+          setStep(!isNaN(stepParam) ? stepParam : 1);
+        } else if (user.onboardingCompleted) {
+          navigate('/dashboard');
+        } else {
+          // Resume at the right step from URL param or auto-detect
+          const stepParam = parseInt(searchParams.get('step'), 10);
+          const autoStep = getOnboardingStep(user);
+          const initialStep = !isNaN(stepParam) ? stepParam : (autoStep ?? 0);
+          setStep(initialStep);
 
-        // Pre-fill userType from existing role
-        if (user.role === 'organisation') setUserType('organisation');
-        else if (user.role === 'candidate') setUserType('candidate');
+          // Pre-fill userType from existing role
+          if (user.role === 'organisation') setUserType('organisation');
+          else if (user.role === 'candidate') setUserType('candidate');
 
-        // Pre-fill org name if available
-        if (user.companyName) setOrgName(user.companyName);
+          // Pre-fill org name if available
+          if (user.companyName) setOrgName(user.companyName);
+        }
       }
     }
   }, [user, isValidating, navigate, searchParams]);
@@ -250,6 +267,25 @@ const OnboardingPage = () => {
     }
   }, [step, userType, plans.length]);
 
+  // Map vertical wheel scroll to horizontal scroll
+  useEffect(() => {
+    const container = plansContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      // Don't interfere if the user is scrolling horizontally (like with a trackpad)
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        container.scrollLeft += e.deltaY;
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [step, plans.length]);
+
   if (isValidating || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -263,16 +299,32 @@ const OnboardingPage = () => {
     setError('');
     setIsLoading(true);
     try {
-      const payload = { userType };
-      if (userType === 'organisation') {
-        payload.companyName = orgName;
-        payload.planId = selectedPlanId;
-        payload.billing = billing;
+      const action = searchParams.get('action');
+      
+      if (action === 'create-org') {
+        const payload = {
+          name: orgName,
+          planId: selectedPlanId,
+          billingCycle: billing
+        };
+        await api.post('/api/tenants/create', payload);
+        // Refresh user context to get new tenant list and switch
+        const res = await api.get('/api/auth/me');
+        setUser(res.data.user);
+        toast.success('Organisation created! 🎉');
+        navigate('/dashboard');
+      } else {
+        const payload = { userType };
+        if (userType === 'organisation') {
+          payload.companyName = orgName;
+          payload.planId = selectedPlanId;
+          payload.billing = billing;
+        }
+        const res = await api.post('/api/auth/complete-onboarding', payload);
+        setUser(res.data.user);
+        toast.success('Welcome aboard! 🎉');
+        navigate('/dashboard');
       }
-      const res = await api.post('/api/auth/complete-onboarding', payload);
-      setUser(res.data.user);
-      toast.success('Welcome aboard! 🎉');
-      navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to complete onboarding');
     } finally {
@@ -370,10 +422,10 @@ const OnboardingPage = () => {
 
       {/* ── Right panel ── */}
       <div className="flex-1 flex flex-col justify-center overflow-y-auto bg-white dark:bg-gray-950">
-        <div className="w-full max-w-xl mx-auto px-6 sm:px-12 py-12">
+        <div className={`w-full mx-auto py-12 ${step === 2 ? 'max-w-none px-0' : 'max-w-xl px-6 sm:px-12'}`}>
 
           {/* Step dots (mobile progress) */}
-          <div className="lg:hidden">
+          <div className={`lg:hidden ${step === 2 ? 'px-6 sm:px-12' : ''}`}>
             <StepDots total={totalSteps} current={step} />
           </div>
 
@@ -490,20 +542,25 @@ const OnboardingPage = () => {
           ══════════════════════════════ */}
           {step === 2 && userType === 'organisation' && (
             <div>
-              <div className="mb-6">
+              <div className="mb-6 px-6 sm:px-12">
                 <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2">Step 3 of {totalSteps}</p>
                 <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1">Choose your plan</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">You can upgrade or downgrade anytime.</p>
               </div>
 
-              <BillingToggle billing={billing} setBilling={setBilling} />
+              <div className="px-6 sm:px-12">
+                <BillingToggle billing={billing} setBilling={setBilling} />
+              </div>
 
               {plansLoading ? (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12 px-6 sm:px-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
                 </div>
               ) : (
-                <div className="flex flex-col gap-4">
+                <div 
+                  ref={plansContainerRef}
+                  className="flex overflow-x-auto gap-4 pb-8 pt-4 px-6 sm:px-12 [&::-webkit-scrollbar]:hidden"
+                >
                   {plans.map(plan => (
                     <PlanCard
                       key={plan.id}
@@ -520,13 +577,13 @@ const OnboardingPage = () => {
 
           {/* Error */}
           {error && (
-            <div className="mt-6 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl text-sm font-medium border border-red-100 dark:border-red-800/50">
+            <div className="mt-6 mx-6 sm:mx-12 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl text-sm font-medium border border-red-100 dark:border-red-800/50">
               {error}
             </div>
           )}
 
           {/* ── Navigation buttons ── */}
-          <div className="mt-8 flex items-center justify-between gap-3">
+          <div className="mt-8 px-6 sm:px-12 flex items-center justify-between gap-3">
             {/* Back */}
             {step > 0 ? (
               <button

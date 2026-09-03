@@ -14,8 +14,14 @@ export const TAB_PERMISSIONS = {
  * @param {Object} requiredPermission - { action, subject }
  * @returns {boolean}
  */
-export const hasPermission = (userPermissions, requiredPermission) => {
+export const hasPermission = (user, requiredPermission) => {
   if (!requiredPermission) return true;
+  if (!user) return false;
+
+  // Organisation owners and superadmins have full access within their scope
+  if (user.role === 'superadmin' || user.role === 'organisation') return true;
+
+  const userPermissions = user.permissions;
   if (!userPermissions || !Array.isArray(userPermissions)) return false;
 
   return userPermissions.some(p => 

@@ -13,7 +13,6 @@ const LoginPage = () => {
   
   // Form State
   const [fullname, setFullname] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -61,7 +60,6 @@ const LoginPage = () => {
         // Signup API Call
         const payload = {
           fullname,
-          username,
           email,
           password,
           confirmPassword,
@@ -199,7 +197,7 @@ const LoginPage = () => {
 
               {!isLogin && (
                 <>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
                         Full Name <span className="text-red-500">*</span>
@@ -209,19 +207,6 @@ const LoginPage = () => {
                         value={fullname}
                         onChange={(e) => setFullname(e.target.value)}
                         placeholder="John Doe"
-                        required={!isLogin}
-                        className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                        Username <span className="text-red-500">*</span>
-                      </label>
-                      <input 
-                        type="text" 
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="johndoe"
                         required={!isLogin}
                         className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
                       />

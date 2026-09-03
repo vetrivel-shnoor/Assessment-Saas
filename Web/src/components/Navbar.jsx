@@ -9,21 +9,18 @@ const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const { user } = useApp();
   
-  const [blobLoaded, setBlobLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const profileSrc = (user?.profilePicture?.startsWith('http') || user?.profilePicture?.startsWith('blob:'))
     ? user.profilePicture 
-    : user?.profilePicture ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${user.profilePicture}` : null;
-  const isDirectUrl = profileSrc?.startsWith('http') || profileSrc?.startsWith('blob:');
+    : user?.profilePicture ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${user.profilePicture.startsWith('/') ? '' : '/'}${user.profilePicture}` : null;
 
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     setImgError(false);
-    if (!isDirectUrl) setBlobLoaded(false);
-  }, [profileSrc, isDirectUrl]);
+  }, [profileSrc]);
 
   useEffect(() => {
     const handleStart = () => setIsUploading(true);
@@ -62,7 +59,7 @@ const Navbar = () => {
         {user ? (
           <Link to="/dashboard/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="relative h-10 w-10 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-400 to-teal-400 flex items-center justify-center shadow-sm border border-emerald-100 dark:border-gray-800">
-              {(isUploading || (!isDirectUrl && !blobLoaded && !imgError && profileSrc)) && (
+              {isUploading && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-200/20 dark:bg-white/10 backdrop-blur-md animate-pulse" />
               )}
               {profileSrc && !imgError ? (
@@ -71,9 +68,8 @@ const Navbar = () => {
                   src={profileSrc} 
                   alt="Profile" 
                   referrerPolicy="no-referrer"
-                  className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-300 ${!isUploading && (isDirectUrl || blobLoaded) ? "opacity-100" : "opacity-0"}`} 
-                  onLoad={() => setBlobLoaded(true)}
-                  onError={() => { setImgError(true); setBlobLoaded(true); }}
+                  className={`w-full h-full object-cover absolute inset-0 z-10 transition-opacity duration-300 ${!isUploading ? "opacity-100" : "opacity-0"}`} 
+                  onError={() => setImgError(true)}
                 />
               ) : (
                 <UserCircle className="w-6 h-6 text-white relative z-0" />
