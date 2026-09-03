@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -22,8 +22,10 @@ import Logo from '../components/Logo';
 import { useApp } from '../context/AppContext';
 import api from '../services/api';
 import Modal from '../components/layout/Modal';
+import TenantSwitcher from '../components/layout/TenantSwitcher';
+import { getOnboardingStep } from '../context/AppContext';
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [blobLoaded, setBlobLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -32,6 +34,15 @@ const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { user, setUser } = useApp();
+
+  let scope = '';
+  const role = user?.role?.toUpperCase();
+  if (role === 'SUPERADMIN' || role === 'ADMIN') {
+    scope = 'admin';
+  } else if (role === 'ORGANISATION') {
+    scope = 'org';
+  }
+  const basePath = scope ? `/dashboard/${scope}` : '/dashboard';
 
   const profileSrc = (user?.profilePicture?.startsWith('http') || user?.profilePicture?.startsWith('blob:'))
     ? user.profilePicture 
@@ -44,6 +55,15 @@ const DashboardLayout = ({ children }) => {
     setImgError(false);
     if (!isDirectUrl) setBlobLoaded(false);
   }, [profileSrc, isDirectUrl]);
+
+  // Guard: if user exists but onboarding not done, redirect to onboarding
+  useEffect(() => {
+    if (!user) return;
+    const step = getOnboardingStep(user);
+    if (step !== null) {
+      navigate(`/onboarding?step=${step}`, { replace: true });
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     const handleStart = () => setIsUploading(true);
@@ -72,13 +92,13 @@ const DashboardLayout = ({ children }) => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiredPermission: TAB_PERMISSIONS.dashboard },
-    { name: 'Profile', href: '/dashboard/profile', icon: UserCircle, requiredPermission: TAB_PERMISSIONS.profile },
-    { name: 'Assessments', href: '/dashboard/assessments', icon: FileSignature, requiredPermission: TAB_PERMISSIONS.assessments },
-    { name: 'Candidates', href: '/dashboard/candidates', icon: Users, requiredPermission: TAB_PERMISSIONS.candidates },
-    { name: 'Users', href: '/dashboard/users', icon: UserCog, requiredPermission: TAB_PERMISSIONS.users },
-    { name: 'Roles', href: '/dashboard/roles', icon: Shield, requiredPermission: TAB_PERMISSIONS.roles },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings, requiredPermission: TAB_PERMISSIONS.settings },
+    { name: 'Dashboard', href: basePath, icon: LayoutDashboard, requiredPermission: TAB_PERMISSIONS.dashboard },
+    { name: 'Profile', href: `${basePath}/profile`, icon: UserCircle, requiredPermission: TAB_PERMISSIONS.profile },
+    { name: 'Assessments', href: `${basePath}/assessments`, icon: FileSignature, requiredPermission: TAB_PERMISSIONS.assessments },
+    { name: 'Candidates', href: `${basePath}/candidates`, icon: Users, requiredPermission: TAB_PERMISSIONS.candidates },
+    { name: 'Users', href: `${basePath}/users`, icon: UserCog, requiredPermission: TAB_PERMISSIONS.users },
+    { name: 'Roles', href: `${basePath}/roles`, icon: Shield, requiredPermission: TAB_PERMISSIONS.roles },
+    { name: 'Settings', href: `${basePath}/settings`, icon: Settings, requiredPermission: TAB_PERMISSIONS.settings },
   ];
 
   const filteredNavigation = navigation.filter(item => hasPermission(user?.permissions, item.requiredPermission));
@@ -115,7 +135,7 @@ const DashboardLayout = ({ children }) => {
           {/* Sidebar Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
             {filteredNavigation.map((item) => {
-              const isActive = location.pathname === item.href || (location.pathname.startsWith(item.href) && item.href !== '/dashboard');
+              const isActive = location.pathname === item.href || (location.pathname.startsWith(item.href) && item.href !== basePath);
               return (
                 <Link
                   key={item.name}
@@ -170,6 +190,8 @@ const DashboardLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-3">
+            <TenantSwitcher />
+            
             <button 
               onClick={toggleTheme}
               className="p-2.5 text-gray-400 hover:text-emerald-500 transition-colors rounded-full bg-white dark:bg-gray-900 shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
@@ -206,7 +228,7 @@ const DashboardLayout = ({ children }) => {
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 pt-0">
-          {children}
+          <Outlet />
         </main>
       </div>
 

@@ -6,7 +6,7 @@ import { logout, uploadProfileImage, checkAuth } from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "../components/layout/Modal";
 import toast from "react-hot-toast";
-import DashboardLayout from "../layouts/DashboardLayout";
+
 
 // Import Components
 import ProfileHeader from "../components/profile/ProfileHeader";
@@ -104,7 +104,7 @@ export default function ProfilePage() {
   if (!user) return null;
 
   return (
-    <DashboardLayout>
+    <>
       <div className="w-full mx-auto px-4 sm:px-8 py-4 sm:py-8">
         {/* --- HEADER --- */}
         <ProfileHeader
@@ -165,6 +165,6 @@ export default function ProfilePage() {
           </div>
         </Modal>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

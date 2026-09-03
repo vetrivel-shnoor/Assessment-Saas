@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../layouts/DashboardLayout';
+
 import { StatCard } from '../components/StatCard';
 import { Card, CardHeader, CardTitle } from '../components/Card';
 import { Button } from '../components/Button';
@@ -30,7 +30,7 @@ const Dashboard = () => {
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Welcome back, {user?.firstName} {user?.lastName}!
@@ -101,7 +101,7 @@ const Dashboard = () => {
           ))}
         </div>
       </Card>
-    </DashboardLayout>
+    </>
   );
 };
 

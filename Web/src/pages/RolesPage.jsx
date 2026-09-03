@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import DashboardLayout from '../layouts/DashboardLayout';
+
 import { Shield, Edit, Trash2, Plus, X, Loader2 } from 'lucide-react';
 import api from '../services/api';
 import { TableContainer, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/Table';
@@ -102,7 +102,7 @@ const RolesPage = () => {
   }, {});
 
   return (
-    <DashboardLayout>
+    <>
       <div className="p-4 sm:p-8 w-full mx-auto space-y-8">
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -292,7 +292,7 @@ const RolesPage = () => {
         </div>
       )}
 
-    </DashboardLayout>
+    </>
   );
 };
 

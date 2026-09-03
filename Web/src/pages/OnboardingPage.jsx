@@ -1,121 +1,277 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Building2, Shield, Camera, Timer, FileText, Sun, Moon } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Building2, Check, ChevronRight, ChevronLeft,
+  Sun, Moon, Zap, Users, BarChart3, Shield, Globe, Star, ArrowRight
+} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { useApp } from '../context/AppContext';
+import { useApp, getOnboardingStep } from '../context/AppContext';
 import Logo from '../components/Logo';
-import api, { uploadProfileImage, checkAuth } from '../services/api';
-import toast from "react-hot-toast";
-import ProfileHeader from '../components/profile/ProfileHeader';
+import api from '../services/api';
+import toast from 'react-hot-toast';
+
+/* ─────────────────────────────────────────────
+   Step indicator
+───────────────────────────────────────────── */
+const StepDots = ({ total, current }) => (
+  <div className="flex items-center gap-2 mb-8">
+    {Array.from({ length: total }).map((_, i) => (
+      <div
+        key={i}
+        className={`h-1.5 rounded-full transition-all duration-500 ${
+          i === current
+            ? 'w-8 bg-emerald-500'
+            : i < current
+            ? 'w-4 bg-emerald-400'
+            : 'w-4 bg-gray-200 dark:bg-gray-800'
+        }`}
+      />
+    ))}
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   Module icon map
+───────────────────────────────────────────── */
+const MODULE_ICONS = {
+  Assessments: Zap,
+  Candidates: Users,
+  'Live Interviews': BarChart3,
+  'AI Proctoring': Shield,
+  Analytics: BarChart3,
+  'Custom Branding': Star,
+  'SSO & SAML': Globe,
+  Settings: Shield,
+};
+
+/* ─────────────────────────────────────────────
+   Plan badge colours
+───────────────────────────────────────────── */
+const PLAN_STYLES = {
+  Free: {
+    badge: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300',
+    ring: 'border-gray-200 dark:border-gray-700',
+    active: 'border-emerald-500 dark:border-emerald-500 ring-2 ring-emerald-500/20',
+    accent: 'text-gray-700 dark:text-gray-300',
+    popular: false,
+  },
+  Pro: {
+    badge: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+    ring: 'border-emerald-200 dark:border-emerald-800',
+    active: 'border-emerald-500 dark:border-emerald-500 ring-2 ring-emerald-500/20',
+    accent: 'text-emerald-600 dark:text-emerald-400',
+    popular: true,
+  },
+  Enterprise: {
+    badge: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
+    ring: 'border-violet-200 dark:border-violet-800',
+    active: 'border-violet-500 dark:border-violet-500 ring-2 ring-violet-500/20',
+    accent: 'text-violet-600 dark:text-violet-400',
+    popular: false,
+  },
+};
+
+/* ─────────────────────────────────────────────
+   Billing Toggle
+───────────────────────────────────────────── */
+const BillingToggle = ({ billing, setBilling }) => (
+  <div className="flex items-center justify-center mb-8">
+    <div className="flex items-center bg-gray-100 dark:bg-gray-800/80 rounded-full p-1 gap-1">
+      <button
+        onClick={() => setBilling('monthly')}
+        className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${
+          billing === 'monthly'
+            ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+        }`}
+      >
+        Monthly
+      </button>
+      <button
+        onClick={() => setBilling('yearly')}
+        className={`px-5 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all duration-300 ${
+          billing === 'yearly'
+            ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+        }`}
+      >
+        Yearly
+        <span className="text-[0.6rem] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">
+          SAVE 20%
+        </span>
+      </button>
+    </div>
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   Plan Card
+───────────────────────────────────────────── */
+const PlanCard = ({ plan, selected, billing, onSelect }) => {
+  const styles = PLAN_STYLES[plan.name] || PLAN_STYLES.Free;
+  const displayPrice = billing === 'yearly' ? (plan.yearlyPrice ?? plan.price) : plan.price;
+  const isSelected = selected === plan.id;
+
+  return (
+    <div
+      onClick={() => onSelect(plan.id)}
+      className={`relative cursor-pointer rounded-2xl border-2 p-5 transition-all duration-300 flex flex-col gap-4
+        ${isSelected ? styles.active : `${styles.ring} hover:border-emerald-300 dark:hover:border-emerald-700`}
+        bg-white dark:bg-gray-900/80`}
+    >
+      {/* Popular badge */}
+      {styles.popular && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="text-[0.65rem] font-bold bg-emerald-500 text-white px-3 py-1 rounded-full shadow">
+            MOST POPULAR
+          </span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <span className={`inline-block text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md mb-2 ${styles.badge}`}>
+            {plan.name}
+          </span>
+          <div className="flex items-end gap-1">
+            <span className={`text-2xl font-extrabold ${styles.accent}`}>
+              {displayPrice === 0 ? 'Free' : `$${displayPrice}`}
+            </span>
+            {displayPrice > 0 && (
+              <span className="text-xs text-gray-400 mb-0.5">/mo</span>
+            )}
+          </div>
+          {billing === 'yearly' && plan.yearlyPrice != null && plan.yearlyPrice > 0 && (
+            <p className="text-[0.65rem] text-gray-400 dark:text-gray-500">
+              billed ${plan.yearlyPrice * 12}/year
+            </p>
+          )}
+        </div>
+
+        {/* Checkmark when selected */}
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
+          isSelected
+            ? 'border-emerald-500 bg-emerald-500'
+            : 'border-gray-300 dark:border-gray-600'
+        }`}>
+          {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+        </div>
+      </div>
+
+      {/* Features (modules) */}
+      <ul className="space-y-2">
+        {plan.features.map((feat, i) => {
+          const Icon = MODULE_ICONS[feat.name] || Zap;
+          return (
+            <li key={i} className="flex items-start gap-2">
+              <Icon className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${styles.accent}`} />
+              <span className="text-xs text-gray-600 dark:text-gray-400 leading-tight">{feat.description}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Limits */}
+      <div className="border-t border-gray-100 dark:border-gray-800 pt-3 grid grid-cols-3 gap-2 text-center">
+        {[
+          { label: 'Users', value: plan.maxUsers >= 9999 ? '∞' : plan.maxUsers },
+          { label: 'Assessments', value: plan.maxAssessments >= 9999 ? '∞' : plan.maxAssessments },
+          { label: 'Candidates', value: plan.maxCandidates >= 9999 ? '∞' : plan.maxCandidates },
+        ].map(({ label, value }) => (
+          <div key={label}>
+            <p className={`text-sm font-bold ${styles.accent}`}>{value}</p>
+            <p className="text-[0.6rem] text-gray-400 dark:text-gray-500">{label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Main OnboardingPage
+───────────────────────────────────────────── */
+const TOTAL_ORG_STEPS = 3;   // 1: role type, 2: org info, 3: plan
+const TOTAL_CAND_STEPS = 1;  // 1: role type only
 
 const OnboardingPage = () => {
   const { theme: themeString, toggleTheme } = useTheme();
-  const themeObj = themeString === 'dark' ? {
-    bg: '#030712', // matches gray-950
-    text: '#ffffff',
-    navbar: { border: '#1e293b', textIdle: '#9ca3af' },
-    scrollbar: { teeth: 'rgba(255,255,255,0.1)', handleGradientStart: '#1e293b' }
-  } : {
-    bg: '#ffffff',
-    text: '#111827',
-    navbar: { border: '#e5e7eb', textIdle: '#6b7280' },
-    scrollbar: { teeth: 'rgba(0,0,0,0.1)', handleGradientStart: '#e5e7eb' }
-  };
-
   const { user, setUser, isValidating } = useApp();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [userType, setUserType] = useState('candidate');
-  const [isUploading, setIsUploading] = useState(false);
+  const [userType, setUserType] = useState('organisation');
+  const [step, setStep] = useState(0); // 0 = choose role type
 
-  const handleProfileImageUpdate = async (file) => {
-    if (!file) return;
-    const localImageUrl = URL.createObjectURL(file);
-    setUser((prev) => ({ ...prev, profilePicture: localImageUrl }));
-    try {
-      setIsUploading(true);
-      const res = await uploadProfileImage(file);
-      if (res.success) {
-        setTimeout(async () => {
-          try {
-            const authRes = await checkAuth();
-            if (authRes.isAuthenticated) setUser(authRes.user);
-          } catch (err) {
-            console.error("Failed to sync profile", err);
-          } finally {
-            setIsUploading(false);
-          }
-        }, 3000);
-      } else {
-        setIsUploading(false);
-      }
-    } catch (error) {
-      console.error("Upload failed", error);
-      toast.error("Failed to upload image");
-      setIsUploading(false);
-    }
-  };
-  
-  // Basic Info
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
+  // Org info
+  const [orgName, setOrgName] = useState('');
+  const [billing, setBilling] = useState('monthly');
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
 
-  // Role-specific Info
-  const [companyName, setCompanyName] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
-  const [skills, setSkills] = useState('');
-  const [experienceLevel, setExperienceLevel] = useState('');
-  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  /* ── Redirect if already onboarded ── */
   useEffect(() => {
     if (!isValidating) {
-      if (!user) {
-        navigate('/login');
-      } else if (user.onboardingCompleted) {
-        navigate('/dashboard');
-      } else {
-        // Pre-fill existing data
-        if (user.firstName && user.firstName !== 'User' && user.firstName !== 'Google') setFirstName(user.firstName);
-        if (user.lastName && user.lastName !== 'User') setLastName(user.lastName);
-        if (user.phone) setPhone(user.phone);
+      if (!user) navigate('/login');
+      else if (user.onboardingCompleted) navigate('/dashboard');
+      else {
+        // Resume at the right step from URL param or auto-detect
+        const stepParam = parseInt(searchParams.get('step'), 10);
+        const autoStep = getOnboardingStep(user);
+        const initialStep = !isNaN(stepParam) ? stepParam : (autoStep ?? 0);
+        setStep(initialStep);
+
+        // Pre-fill userType from existing role
+        if (user.role === 'organisation') setUserType('organisation');
+        else if (user.role === 'candidate') setUserType('candidate');
+
+        // Pre-fill org name if available
+        if (user.companyName) setOrgName(user.companyName);
       }
     }
-  }, [user, isValidating, navigate]);
+  }, [user, isValidating, navigate, searchParams]);
+
+  /* ── Fetch plans when org selects plan step ── */
+  useEffect(() => {
+    if (step === 2 && userType === 'organisation' && plans.length === 0) {
+      setPlansLoading(true);
+      api.get('/api/tenants/plans')
+        .then(res => {
+          setPlans(res.data.plans);
+          if (res.data.plans.length > 0) setSelectedPlanId(res.data.plans[0].id);
+        })
+        .catch(() => toast.error('Failed to load plans'))
+        .finally(() => setPlansLoading(false));
+    }
+  }, [step, userType, plans.length]);
 
   if (isValidating || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
       </div>
     );
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /* ── Submit ── */
+  const handleFinish = async () => {
     setError('');
     setIsLoading(true);
-
     try {
-      const payload = { 
-        userType,
-        firstName,
-        lastName,
-        phone
-      };
-      
+      const payload = { userType };
       if (userType === 'organisation') {
-        payload.companyName = companyName;
-        payload.jobTitle = jobTitle;
-      } else {
-        payload.skills = skills;
-        payload.experienceLevel = experienceLevel;
+        payload.companyName = orgName;
+        payload.planId = selectedPlanId;
+        payload.billing = billing;
       }
-
       const res = await api.post('/api/auth/complete-onboarding', payload);
       setUser(res.data.user);
+      toast.success('Welcome aboard! 🎉');
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to complete onboarding');
@@ -124,45 +280,87 @@ const OnboardingPage = () => {
     }
   };
 
+  const totalSteps = userType === 'organisation' ? TOTAL_ORG_STEPS : TOTAL_CAND_STEPS;
+
+  const canNext = () => {
+    if (step === 0) return true; // role type is always chosen
+    if (step === 1 && userType === 'organisation') return orgName.trim().length > 0;
+    if (step === 2 && userType === 'organisation') return !!selectedPlanId;
+    return false;
+  };
+
+  const handleNext = () => {
+    if (userType === 'candidate') {
+      handleFinish();
+      return;
+    }
+    if (step < totalSteps - 1) {
+      setStep(s => s + 1);
+    } else {
+      handleFinish();
+    }
+  };
+
+  /* ── Left panel dynamic text ── */
+  const leftContent = {
+    0: { title: 'Welcome!', sub: 'Let\'s get you set up in under 2 minutes.' },
+    1: { title: 'Your Organisation', sub: 'Tell us a bit about where you work.' },
+    2: { title: 'Choose a Plan', sub: 'Pick what fits your team best.' },
+  };
+  const { title, sub } = leftContent[step] || leftContent[0];
+
   return (
     <div className="min-h-screen flex font-sans bg-white dark:bg-gray-950 transition-colors duration-500">
-      
-      {/* Theme Toggle Floating */}
-      <div className="absolute top-6 right-8 z-20">
-        <button 
+
+      {/* Theme Toggle */}
+      <div className="fixed top-5 right-6 z-30">
+        <button
           onClick={toggleTheme}
-          className="p-2.5 text-gray-500 hover:text-emerald-500 transition-colors rounded-full bg-white dark:bg-gray-800 shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100 dark:border-gray-700"
+          className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow text-gray-400 hover:text-emerald-500 transition-colors"
         >
-          {themeString === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          {themeString === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
         </button>
       </div>
 
-      {/* Left Side - Info Panel */}
-      <div className="hidden lg:flex flex-col justify-between w-5/12 bg-emerald-950 text-white p-12 lg:p-16 relative overflow-hidden border-r border-emerald-900">
+      {/* ── Left panel ── */}
+      <div className="hidden lg:flex flex-col w-5/12 bg-emerald-950 text-white p-14 relative overflow-hidden border-r border-emerald-900">
         <div className="relative z-10">
-          <div className="mb-16">
-             <Logo linkTo="/" />
-          </div>
+          <Logo linkTo="/" />
+        </div>
 
-          <div className="max-w-md">
-            <h2 className="text-[2.5rem] font-bold text-white mb-1 leading-tight">Complete your</h2>
-            <h2 className="text-[2.5rem] font-bold text-emerald-400 mb-6 leading-tight">profile setup</h2>
-            <p className="text-emerald-100/70 text-sm leading-relaxed mb-16 max-w-sm">
-              We need a few more details to customize your experience on the platform.
-            </p>
+        {/* Decorative blobs */}
+        <div className="absolute -top-24 -left-24 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-teal-400/5 rounded-full blur-3xl" />
 
-            <div className="space-y-8">
-              {[
-                { icon: Shield, text: "Secure Proctored Exams" },
-                { icon: Camera, text: "Live Camera Monitoring" },
-                { icon: Timer, text: "Auto-Save & Timer" },
-                { icon: FileText, text: "Instant Results & Reports" }
-              ].map((feature, i) => (
-                <div key={i} className="flex items-center gap-5 group">
-                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-emerald-500/30 group-hover:bg-emerald-500/20 transition-colors flex items-center justify-center">
-                    <feature.icon className="w-5 h-5 text-emerald-400" strokeWidth={1.5} />
+        <div className="relative z-10 flex-1 flex flex-col justify-center">
+          <div className="max-w-xs">
+            <div
+              key={step}
+              className="animate-fade-in"
+              style={{ animation: 'fadeSlideUp 0.4s ease both' }}
+            >
+              <h2 className="text-4xl font-extrabold leading-tight mb-3">
+                {title.split(' ').map((word, i) => (
+                  <span key={i} className={i % 2 === 0 ? 'text-white' : 'text-emerald-400'}>{word} </span>
+                ))}
+              </h2>
+              <p className="text-emerald-100/60 text-sm leading-relaxed">{sub}</p>
+            </div>
+
+            {/* Step progress pills */}
+            <div className="mt-12 flex flex-col gap-3">
+              {(userType === 'organisation' ? ['Choose role', 'Organisation info', 'Select plan'] : ['Choose role']).map((label, i) => (
+                <div key={i} className={`flex items-center gap-3 transition-all duration-300 ${i <= step ? 'opacity-100' : 'opacity-30'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[0.65rem] font-bold border-2 transition-all duration-300 ${
+                    i < step
+                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                      : i === step
+                      ? 'border-emerald-400 text-emerald-300'
+                      : 'border-emerald-800 text-emerald-700'
+                  }`}>
+                    {i < step ? <Check className="w-3 h-3" /> : i + 1}
                   </div>
-                  <span className="text-sm font-medium text-emerald-50 tracking-wide">{feature.text}</span>
+                  <span className={`text-sm font-medium ${i === step ? 'text-white' : 'text-emerald-200/50'}`}>{label}</span>
                 </div>
               ))}
             </div>
@@ -170,177 +368,207 @@ const OnboardingPage = () => {
         </div>
       </div>
 
-      {/* Right Side - Form */}
-      <div className="w-full lg:w-7/12 flex flex-col justify-center px-6 sm:px-16 lg:px-24 bg-white dark:bg-gray-950 overflow-y-auto py-12">
-        <div className="w-full max-w-[28rem] mx-auto">
-          
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Almost there!
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Please tell us a bit more about yourself.
-            </p>
+      {/* ── Right panel ── */}
+      <div className="flex-1 flex flex-col justify-center overflow-y-auto bg-white dark:bg-gray-950">
+        <div className="w-full max-w-xl mx-auto px-6 sm:px-12 py-12">
+
+          {/* Step dots (mobile progress) */}
+          <div className="lg:hidden">
+            <StepDots total={totalSteps} current={step} />
           </div>
 
-          {/* Profile Upload Section */}
-          <div className="mb-10">
-            <ProfileHeader
-              user={user}
-              theme={themeObj}
-              onUpdateProfileImage={handleProfileImageUpdate}
-              isLoading={isUploading}
-            />
-          </div>
-
-          {/* User Type Toggle */}
-          <div className="flex p-1 bg-gray-50 dark:bg-gray-900 rounded-xl mb-10 border border-gray-200 dark:border-gray-800">
-            <button
-              onClick={() => setUserType('candidate')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-lg transition-all duration-300 ${
-                userType === 'candidate' 
-                  ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-gray-200 dark:border-gray-700' 
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-              }`}
-            >
-              <User className="w-4 h-4" />
-              Student / Candidate
-            </button>
-            <button
-              onClick={() => setUserType('organisation')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-lg transition-all duration-300 ${
-                userType === 'organisation' 
-                  ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-gray-200 dark:border-gray-700' 
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              Organisation
-            </button>
-          </div>
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm font-medium border border-red-100 dark:border-red-800/50">
-                {error}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  First Name <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="John"
-                  required
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  Last Name
-                </label>
-                <input 
-                  type="text" 
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
-                />
-              </div>
-            </div>
-
+          {/* ══════════════════════════════
+              STEP 0 — Choose role type
+          ══════════════════════════════ */}
+          {step === 0 && (
             <div>
-              <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <input 
-                type="text" 
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 234 567 8900"
-                required
-                className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
-              />
-            </div>
+              <div className="mb-8">
+                <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2">Step 1 of {totalSteps}</p>
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1">How will you use the platform?</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">This helps us tailor the experience for you.</p>
+              </div>
 
-            {userType === 'organisation' ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                    Company Name <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Acme Corp"
-                    required={userType === 'organisation'}
-                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                    Job Title <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    value={jobTitle}
-                    onChange={(e) => setJobTitle(e.target.value)}
-                    placeholder="HR Manager"
-                    required={userType === 'organisation'}
-                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                    Skills <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    value={skills}
-                    onChange={(e) => setSkills(e.target.value)}
-                    placeholder="React, Node.js, Python"
-                    required={userType === 'candidate'}
-                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400 outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                    Experience <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={experienceLevel}
-                    onChange={(e) => setExperienceLevel(e.target.value)}
-                    required={userType === 'candidate'}
-                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-300 text-gray-900 dark:text-white outline-none text-sm appearance-none"
+              <div className="flex flex-col gap-4">
+                {[
+                  {
+                    type: 'organisation',
+                    icon: Building2,
+                    title: 'Organisation / Institute',
+                    desc: 'Create assessments, hire candidates, manage your team',
+                    color: 'emerald',
+                  },
+                ].map(({ type, icon: Icon, title: t, desc, color }) => (
+                  <button
+                    key={type}
+                    onClick={() => setUserType(type)}
+                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-300 group ${
+                      userType === type
+                        ? `border-${color}-500 bg-${color}-50 dark:bg-${color}-900/20`
+                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+                    }`}
                   >
-                    <option value="" disabled>Select</option>
-                    <option value="beginner">0-2 years</option>
-                    <option value="intermediate">3-5 years</option>
-                    <option value="expert">5+ years</option>
-                  </select>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+                        userType === type ? `bg-${color}-500 text-white` : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-gray-200'
+                      }`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900 dark:text-white">{t}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{desc}</p>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        userType === type ? `border-${color}-500 bg-${color}-500` : 'border-gray-300 dark:border-gray-600'
+                      }`}>
+                        {userType === type && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Candidate card */}
+                <button
+                  onClick={() => setUserType('candidate')}
+                  className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-300 group ${
+                    userType === 'candidate'
+                      ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
+                      : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+                      userType === 'candidate' ? 'bg-violet-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-gray-200'
+                    }`}>
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-900 dark:text-white">Student / Candidate</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Take assessments assigned by organisations</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                      userType === 'candidate' ? 'border-violet-500 bg-violet-500' : 'border-gray-300 dark:border-gray-600'
+                    }`}>
+                      {userType === 'candidate' && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════
+              STEP 1 — Org info
+          ══════════════════════════════ */}
+          {step === 1 && userType === 'organisation' && (
+            <div>
+              <div className="mb-8">
+                <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2">Step 2 of {totalSteps}</p>
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1">Name your organisation</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">This is what your team & candidates will see.</p>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-[0.65rem] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
+                    Organisation / Institute Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={orgName}
+                    onChange={e => setOrgName(e.target.value)}
+                    placeholder="e.g. Acme Corp, IIT Madras, Apex Academy"
+                    autoFocus
+                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm text-gray-900 dark:text-white placeholder-gray-400 transition-all"
+                  />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════
+              STEP 2 — Plan selection
+          ══════════════════════════════ */}
+          {step === 2 && userType === 'organisation' && (
+            <div>
+              <div className="mb-6">
+                <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2">Step 3 of {totalSteps}</p>
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1">Choose your plan</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">You can upgrade or downgrade anytime.</p>
+              </div>
+
+              <BillingToggle billing={billing} setBilling={setBilling} />
+
+              {plansLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {plans.map(plan => (
+                    <PlanCard
+                      key={plan.id}
+                      plan={plan}
+                      selected={selectedPlanId}
+                      billing={billing}
+                      onSelect={setSelectedPlanId}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="mt-6 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl text-sm font-medium border border-red-100 dark:border-red-800/50">
+              {error}
+            </div>
+          )}
+
+          {/* ── Navigation buttons ── */}
+          <div className="mt-8 flex items-center justify-between gap-3">
+            {/* Back */}
+            {step > 0 ? (
+              <button
+                onClick={() => setStep(s => s - 1)}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" /> Back
+              </button>
+            ) : (
+              <div /> // spacer
             )}
 
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-all duration-300 mt-6 text-center disabled:opacity-70 disabled:cursor-not-allowed"
+            {/* Next / Finish */}
+            <button
+              onClick={handleNext}
+              disabled={!canNext() || isLoading}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30"
             >
-              {isLoading ? 'Saving...' : 'Complete Setup'}
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              ) : (
+                <>
+                  {step === totalSteps - 1 || userType === 'candidate'
+                    ? 'Complete Setup'
+                    : 'Continue'}
+                  {step < totalSteps - 1 && userType === 'organisation'
+                    ? <ChevronRight className="w-4 h-4" />
+                    : <ArrowRight className="w-4 h-4" />}
+                </>
+              )}
             </button>
-          </form>
+          </div>
         </div>
       </div>
+
+      {/* Fade-in keyframe */}
+      <style>{`
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };

@@ -56,7 +56,7 @@ const LoginPage = () => {
         // Login API Call
         const res = await api.post('/api/auth/login', { email, password });
         setUser(res.data.user);
-        navigate('/onboarding');
+        navigate(res.data.user.onboardingCompleted ? '/dashboard' : '/onboarding');
       } else {
         // Signup API Call
         const payload = {
@@ -78,7 +78,7 @@ const LoginPage = () => {
 
         const res = await api.post('/api/auth/signup', payload);
         setUser(res.data.user);
-        navigate('/onboarding');
+        navigate(res.data.user.onboardingCompleted ? '/dashboard' : '/onboarding');
       }
     } catch (err) {
       setError(err.response?.data?.message || `Failed to ${isLogin ? 'login' : 'sign up'}`);
